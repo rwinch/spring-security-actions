@@ -23,6 +23,13 @@ The action always installs an `init.gradle` into `~/.gradle/init.d` that adds `m
 
 Credentials come from the Gradle project properties `artifactoryUsername`/`artifactoryPassword` — e.g. via the `ORG_GRADLE_PROJECT_artifactoryUsername`/`ORG_GRADLE_PROJECT_artifactoryPassword` environment variable convention — falling back to the `COMMERCIAL_REPO_USERNAME`/`COMMERCIAL_REPO_PASSWORD` environment variables. If neither username nor password is set, the commercial repositories are skipped.
 
+## Caller-supplied init scripts
+
+If the repository being built has a `gradle/init.d` directory at its root, every `*.gradle` file in it is copied into `~/.gradle/init.d` alongside the action's own bundled `init.gradle`. This lets a caller add its own init scripts without duplicating the `mkdir`/`cp` logic this action already performs.
+
+- The directory is optional; if it doesn't exist, nothing extra happens.
+- A caller file literally named `init.gradle` overrides this action's bundled one, since the caller's directory is copied after it.
+
 ## Example
 
 ```yaml

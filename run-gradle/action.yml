@@ -15,6 +15,9 @@ runs:
       run: |
         mkdir -p "$HOME/.gradle/init.d"
         cp "$GITHUB_ACTION_PATH/init.gradle" "$HOME/.gradle/init.d/init.gradle"
+        if [ -d "gradle/init.d" ]; then
+          cp gradle/init.d/*.gradle "$HOME/.gradle/init.d/"
+        fi
     - name: Run with Gradle
       shell: bash
       env:
