@@ -6,6 +6,14 @@ allprojects {
 		if (repoUsername && repoPassword) {
 			maven {
 				name "spring-commercial-release"
+				url "https://repo.spring.io/artifactory/spring-commercial-release-remote"
+				credentials {
+					username repoUsername
+					password repoPassword
+				}
+			}
+			maven {
+				name "spring-enterprise-release"
 				url "https://usw1.packages.broadcom.com/spring-enterprise-maven-prod-local"
 				credentials {
 					username repoUsername
