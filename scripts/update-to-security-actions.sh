@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 #
 # Finds every SHA-pinned reference to spring-io/spring-security-actions in a
-# project (e.g. `uses: spring-io/spring-security-actions/deploy-artifacts@<sha>  # 0.0.2`)
-# and rewrites the SHA and trailing version comment to match a target release.
+# project (e.g. `uses: spring-io/spring-security-actions/deploy-artifacts@<sha>  # 0.0.2`,
+# `...@<sha>  # main`, or a bare `...@<sha>` with no trailing comment at all)
+# and rewrites the SHA and trailing comment to match a target release.
 #
 # By default the target release is whichever spring-io/spring-security-actions
 # tag is newest, resolved from GitHub over the network. Pass a tag explicitly
@@ -59,7 +60,7 @@ fi
 
 echo "Updating references to ${REPO} -> ${TAG} (${SHA})"
 
-MATCH="${REPO}/[A-Za-z0-9._/-]+@[0-9a-f]{40}[[:space:]]*#[[:space:]]*[0-9]+\.[0-9]+\.[0-9]+"
+MATCH="${REPO}/[A-Za-z0-9._/-]+@[0-9a-f]{40}"
 UPDATED_FILES=()
 
 while IFS= read -r -d '' file; do
@@ -68,14 +69,17 @@ while IFS= read -r -d '' file; do
   backup="$(mktemp)"
   cp "${file}" "${backup}"
 
-  perl -pi -e "s{(\Q${REPO}\E/[A-Za-z0-9._/-]+)\@[0-9a-f]{40}([ \t]*#[ \t]*)[0-9]+\.[0-9]+\.[0-9]+}{\${1}\@${SHA}\${2}${TAG}}g" "${file}"
+  perl -pi -e "
+    s{(\Q${REPO}\E/[A-Za-z0-9._/-]+)\@[0-9a-f]{40}([ \t]*#[ \t]*)(?:[0-9]+\.[0-9]+\.[0-9]+|main)}{\${1}\@${SHA}\${2}${TAG}}g;
+    s{(\Q${REPO}\E/[A-Za-z0-9._/-]+)\@[0-9a-f]{40}(?![ \t]*#)}{\${1}\@${SHA}  # ${TAG}}g;
+  " "${file}"
 
   if ! cmp -s "${backup}" "${file}"; then
     echo "  updated: ${file}"
     UPDATED_FILES+=("${file}")
   fi
   rm -f "${backup}"
-done < <(find "${TARGET_DIR}" \( -name '*.yml' -o -name '*.yaml' \) -type f -not -path '*/.git/*' -print0)
+done < <(find "${TARGET_DIR}" \( -name '*.yml' -o -name '*.yaml' -o -name '*.yml.template' -o -name '*.yaml.template' \) -type f -not -path '*/.git/*' -print0)
 
 if [[ "${#UPDATED_FILES[@]}" -eq 0 ]]; then
   echo "No outdated references found; nothing to do."
