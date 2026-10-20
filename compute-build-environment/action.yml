@@ -1,0 +1,60 @@
+name: "compute-build-environment"
+description: "Computes the project version, the release channel, and the names of the secrets a build needs"
+author: "jzheaux"
+
+outputs:
+  version:
+    description: "The version the build will produce, which includes the -INTERNAL suffix that the build action adds on the internal channel"
+    value: ${{ steps.effective-version.outputs.version }}
+  snapshot:
+    description: "Whether the version is a snapshot version"
+    value: ${{ steps.version.outputs.snapshot }}
+  release-channel:
+    description: "The release channel underway: 'lts', 'hotfix', 'internal', or 'oss'"
+    value: ${{ steps.release-channel.outputs.channel }}
+  dependencies-username:
+    description: "Name of the secret with the username for resolving dependencies, or empty if none is needed"
+    value: ${{ steps.secret-names.outputs.dependencies-username }}
+  dependencies-password:
+    description: "Name of the secret with the password for resolving dependencies, or empty if none is needed"
+    value: ${{ steps.secret-names.outputs.dependencies-password }}
+  publishing-username:
+    description: "Name of the secret with the username for publishing artifacts"
+    value: ${{ steps.secret-names.outputs.publishing-username }}
+  publishing-password:
+    description: "Name of the secret with the password for publishing artifacts"
+    value: ${{ steps.secret-names.outputs.publishing-password }}
+  dependabot-username:
+    description: "Name of the secret with the username Dependabot uses to resolve dependencies, or empty if none is needed"
+    value: ${{ steps.secret-names.outputs.dependabot-username }}
+  dependabot-password:
+    description: "Name of the secret with the password Dependabot uses to resolve dependencies, or empty if none is needed"
+    value: ${{ steps.secret-names.outputs.dependabot-password }}
+
+runs:
+  using: "composite"
+  steps:
+    - id: version
+      name: Extract Project Version
+      uses: spring-io/spring-release-actions/compute-version@3f7412aeec60ad13127b2a536a1b19a2803a5b81  # 0.0.8
+    - id: release-channel
+      name: Establish Release Channel
+      uses: spring-io/spring-release-actions/compute-release-channel@3f7412aeec60ad13127b2a536a1b19a2803a5b81  # 0.0.8
+      with:
+        version: ${{ steps.version.outputs.version }}
+    - id: secret-names
+      name: Resolve Secret Names
+      uses: $/compute-secret-names
+      with:
+        release-channel: ${{ steps.release-channel.outputs.channel }}
+    - id: effective-version
+      name: Compute Effective Version
+      shell: bash
+      env:
+        VERSION: ${{ steps.version.outputs.version }}
+        CHANNEL: ${{ steps.release-channel.outputs.channel }}
+      run: |
+        if [[ "$CHANNEL" == 'internal' ]]; then
+          VERSION="${VERSION/%-SNAPSHOT/-INTERNAL-SNAPSHOT}"
+        fi
+        echo "version=$VERSION" >> "$GITHUB_OUTPUT"
