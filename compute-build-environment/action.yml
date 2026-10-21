@@ -4,8 +4,8 @@ author: "jzheaux"
 
 outputs:
   version:
-    description: "The version the build will produce, which includes the -INTERNAL suffix that the build action adds on the internal channel"
-    value: ${{ steps.effective-version.outputs.version }}
+    description: "The project version, as read from gradle.properties"
+    value: ${{ steps.version.outputs.version }}
   snapshot:
     description: "Whether the version is a snapshot version"
     value: ${{ steps.version.outputs.snapshot }}
@@ -47,14 +47,3 @@ runs:
       uses: $/compute-secret-names
       with:
         release-channel: ${{ steps.release-channel.outputs.channel }}
-    - id: effective-version
-      name: Compute Effective Version
-      shell: bash
-      env:
-        VERSION: ${{ steps.version.outputs.version }}
-        CHANNEL: ${{ steps.release-channel.outputs.channel }}
-      run: |
-        if [[ "$CHANNEL" == 'internal' ]]; then
-          VERSION="${VERSION/%-SNAPSHOT/-INTERNAL-SNAPSHOT}"
-        fi
-        echo "version=$VERSION" >> "$GITHUB_OUTPUT"

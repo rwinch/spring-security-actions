@@ -6,11 +6,11 @@ A composite action that maps a release channel to the *names* of the repository 
 
 | Input | Required | Default | Description |
 |-------|----------|---------|-------------|
-| `release-channel` | Yes | | The release channel: `oss`, `internal`, `lts`, or `hotfix`. |
+| `release-channel` | Yes | | The release channel: `oss`, `internal`, `lts`, or `hotfix`. Any other value fails the action. |
 
 ## Outputs
 
-| Output | `oss` | any other channel |
+| Output | `oss` | `internal`, `lts`, `hotfix` |
 |--------|-------|-------------------|
 | `dependencies-username` / `dependencies-password` | _(empty)_ | `COMMERCIAL_ARTIFACTORY_USERNAME` / `COMMERCIAL_ARTIFACTORY_PASSWORD` |
 | `publishing-username` / `publishing-password` | `ARTIFACTORY_USERNAME` / `ARTIFACTORY_PASSWORD` | `COMMERCIAL_ARTIFACTORY_USERNAME` / `COMMERCIAL_ARTIFACTORY_PASSWORD` |
