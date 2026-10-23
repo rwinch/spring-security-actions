@@ -1,0 +1,25 @@
+name: "push-branches"
+description: "Pushes branches at once, or none (git push --atomic --force), and summarizes them"
+
+inputs:
+  branches:
+    description: "The branches, as `branch=version`, one per line. The version is for the summary."
+    required: true
+  base:
+    description: "The commit that was pushed, to count the commits of the branches."
+    required: false
+  remote:
+    description: "The remote to push to."
+    required: false
+    default: "origin"
+  title:
+    description: "The title of the summary."
+    required: false
+  path:
+    description: "The directory of the git repository."
+    required: false
+    default: "."
+
+runs:
+  using: "node24"
+  main: "dist/index.js"
