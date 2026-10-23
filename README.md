@@ -39,3 +39,7 @@ npm run build       # formats, and bundles src/ into dist/: commit both
 ```
 
 `dist/` is committed, because GitHub runs it with no `npm install`, and CI fails if it is not the build of `src/`. Dependabot updates the dependencies of every action, and the actions that these use.
+
+## Releasing a change of an action
+
+The release workflow calls the actions of this repository at a commit, so a change of an action reaches the callers in three steps: merge the change, change the commit in every `uses:` of `.github/workflows/release-branches.yml` to the commit of the merge (CI checks that they are commits of this repository), and tag the commit of that second change. Callers of the workflow then pin the tag's commit.
