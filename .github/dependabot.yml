@@ -3,8 +3,60 @@ version: 2
 updates:
   - package-ecosystem: github-actions
     target-branch: main
-    directory: /
+    directories:
+      - /
+      - /apply-commercial-license
+      - /build
+      - /check-not-ready
+      - /compute-build-environment
+      - /compute-release-version
+      - /compute-secret-names
+      - /deploy-artifacts
+      - /ensure-artifacts
+      - /ensure-dependency-issues
+      - /git-identity
+      - /load-train
+      - /map-train-versions
+      - /merge-release
+      - /merge-release-branch
+      - /name-repositories
+      - /plan-release-branches
+      - /pr-build
+      - /publish-release-notes
+      - /push-branches
+      - /run-gradle
+      - /set-version
+      - /start-branch
+      - /test
+      - /update-versions
     schedule:
       interval: weekly
     labels:
       - 'type: dependency-upgrade'
+
+  # Every action is self contained: it has its own package.json and its own lock file
+  - package-ecosystem: npm
+    target-branch: main
+    directories:
+      - /apply-commercial-license
+      - /check-not-ready
+      - /compute-release-version
+      - /ensure-dependency-issues
+      - /git-identity
+      - /load-train
+      - /map-train-versions
+      - /merge-release
+      - /name-repositories
+      - /plan-release-branches
+      - /push-branches
+      - /set-version
+      - /start-branch
+      - /update-versions
+    schedule:
+      interval: weekly
+    labels:
+      - 'type: dependency-upgrade'
+    groups:
+      npm-dependencies:
+        patterns:
+          - '*'

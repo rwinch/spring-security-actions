@@ -1,0 +1,22 @@
+name: "start-branch"
+description: "Starts a branch at a commit or another branch, and switches to it. The branch is reset if it exists"
+
+inputs:
+  branch:
+    description: "The branch to start, for example `release/7.0.1`."
+    required: true
+  from:
+    description: "What it starts at: a commit (the SHA of the pushed commit) or a branch (`disclosure/7.0.1.1-SNAPSHOT`)."
+    required: true
+  path:
+    description: "The directory of the git repository."
+    required: false
+    default: "."
+
+outputs:
+  commit:
+    description: "The commit that the branch is at."
+
+runs:
+  using: "node24"
+  main: "dist/index.js"

@@ -1,0 +1,20 @@
+name: "check-not-ready"
+description: "Fails if the release train has the release of the project as ready already"
+
+inputs:
+  train-file:
+    description: "The file with `train.yml` as JSON, the output `train-file` of `load-train`."
+    required: true
+  project:
+    description: "The project id in the release train, for example `spring-security`."
+    required: true
+  version:
+    description: "The version of the release, for example `7.0.1`."
+    required: true
+  train-branch:
+    description: "The branch of the train, for the message."
+    required: false
+
+runs:
+  using: "node24"
+  main: "dist/index.js"

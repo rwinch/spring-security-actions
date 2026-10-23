@@ -57,7 +57,7 @@ runs:
         dir: ${{ inputs.local-repository }}
     - name: Deploy to Artifactory
       if: ${{ inputs.repository-name != 'maven2' }}
-      uses: spring-io/artifactory-deploy-action@926d7f7cc810569395346bf3a4d91b380b3e355b  # v0.0.4
+      uses: spring-io/artifactory-deploy-action@9cb1c7df78cd8d1223de1dde974819fa6378af9f  # v0.0.6
       with:
         uri: ${{ inputs.repository-uri }}
         repository: ${{ inputs.repository-name }}

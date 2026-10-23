@@ -1,0 +1,20 @@
+name: "git-identity"
+description: "Sets who commits in the repository (user.name and user.email), github-actions[bot] by default"
+
+inputs:
+  name:
+    description: "The name of who commits."
+    required: false
+    default: "github-actions[bot]"
+  email:
+    description: "The email of who commits. This one is the one that GitHub gives the bot."
+    required: false
+    default: "41898282+github-actions[bot]@users.noreply.github.com"
+  path:
+    description: "The directory of the git repository."
+    required: false
+    default: "."
+
+runs:
+  using: "node24"
+  main: "dist/index.js"

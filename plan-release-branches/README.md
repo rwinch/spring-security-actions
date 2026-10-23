@@ -1,0 +1,67 @@
+# plan-release-branches
+
+Decides what the push of a disclosure branch builds. It is the first thing that the release workflow does, and it only reads its two inputs: nothing is checked out or changed.
+
+## What it decides
+
+|  | A frozen disclosure, `disclosure/frozen/7.0.x` (`7.0.1-SNAPSHOT`) | An active disclosure, `disclosure/active/7.0.x` (`7.0.1-SNAPSHOT`) |
+|---|---|---|
+| `kind` | `frozen` | `active` |
+| `base-version`, which the release version is worked out from | `7.0.1-SNAPSHOT` | `7.0.1.1-SNAPSHOT`, the hotfix |
+| `hotfix` | `false` | `true` |
+| `hotfix-of`, the release that the hotfix fixes | empty | `release/7.0.1` |
+| `snapshot-branch` | `disclosure/7.0.1-INTERNAL-SNAPSHOT` | `disclosure/7.0.1.1-SNAPSHOT` |
+| `snapshot-version` | `7.0.1-INTERNAL-SNAPSHOT` | `7.0.1.1-SNAPSHOT` |
+
+- A snapshot never carries a milestone or a release candidate: the snapshot of `7.1.0-SNAPSHOT` is `7.1.0-INTERNAL-SNAPSHOT`, and not the version of the release that is built (`7.1.0-RC1`).
+- A hotfix never has an internal snapshot, and a frozen disclosure has no hotfix.
+- A version that ends with `.0` on an active disclosure is not a patch release, so it has no hotfix: `release` is `false`, and there is nothing to build.
+
+## Inputs
+
+| Input | Required | Description |
+|---|---|---|
+| `ref-name` | yes | The branch that was pushed: `disclosure/frozen/<generation>` or `disclosure/active/<generation>`. |
+| `version` | yes | The version of `gradle.properties` on it, `<major>.<minor>.<patch>-SNAPSHOT`. |
+
+## Outputs
+
+`release`, `kind`, `base-version`, `hotfix`, `hotfix-of`, `snapshot-branch`, `snapshot-version`: see the table above. When `release` is `false`, only `release` and `kind` are written.
+
+## Fails when
+
+- the branch is not a disclosure branch
+- the version is not `<major>.<minor>.<patch>-SNAPSHOT` (`7.0.1`, `7.1.0-M1-SNAPSHOT`)
+- a frozen disclosure has a hotfix version (`7.0.1.1-SNAPSHOT`): only an active disclosure has a hotfix
+- an active disclosure has a hotfix version already: it has the version of the release that it fixes
+
+## Secrets and permissions
+
+None. It reads two inputs.
+
+## Using it
+
+```yaml
+- id: version
+  uses: spring-io/spring-release-actions/compute-version@...
+- id: plan
+  uses: spring-io/spring-security-actions/plan-release-branches@v1
+  with:
+    ref-name: ${{ github.ref_name }}
+    version: ${{ steps.version.outputs.version }}
+- if: steps.plan.outputs.release == 'true'
+  run: echo "Building ${{ steps.plan.outputs.snapshot-branch }}"
+```
+
+## Running it locally
+
+```shell
+cd plan-release-branches
+npm ci
+export GITHUB_OUTPUT=$(mktemp)
+env 'INPUT_REF-NAME=disclosure/active/7.0.x' 'INPUT_VERSION=7.0.1-SNAPSHOT' \
+    node src/index.js
+cat "$GITHUB_OUTPUT"
+```
+
+`npm test` runs its tests, which need no network and no token.

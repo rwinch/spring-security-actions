@@ -1,0 +1,19 @@
+name: "name-repositories"
+description: "Names the project and its OSS repository from the commercial repository that runs the workflow"
+
+inputs:
+  repository:
+    description: "The repository, `owner/name`. The one that runs the workflow if it is not given."
+    required: false
+
+outputs:
+  owner:
+    description: "The owner of the repository."
+  project:
+    description: "The name of the repository without `-commercial`: the project id in the release train."
+  oss-repository:
+    description: "`owner/project`: the repository with the milestones and the issues."
+
+runs:
+  using: "node24"
+  main: "dist/index.js"

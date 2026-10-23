@@ -1,0 +1,26 @@
+name: "set-version"
+description: "Sets the version of gradle.properties (the line version=...) and commits it, as a commit of its own"
+
+inputs:
+  version:
+    description: "The version to write, for example 7.0.1, 7.1.0-RC1 or 7.0.1.1-SNAPSHOT"
+    required: true
+  message:
+    description: "The message of the commit"
+    required: true
+  file:
+    description: "The properties file, in the repository"
+    required: false
+    default: "gradle.properties"
+  path:
+    description: "The directory of the git repository"
+    required: false
+    default: "."
+
+outputs:
+  commit:
+    description: "The commit that was made"
+
+runs:
+  using: "node24"
+  main: "dist/index.js"

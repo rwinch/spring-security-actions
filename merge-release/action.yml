@@ -1,0 +1,19 @@
+name: "merge-release"
+description: "Merges the release that a hotfix fixes into the checked out branch, so the hotfix is based on the release"
+
+inputs:
+  release:
+    description: "The branch of the release, for example release/7.0.1. It is merged from the branch of the remote origin"
+    required: true
+  path:
+    description: "The directory of the git repository"
+    required: false
+    default: "."
+
+outputs:
+  merged:
+    description: "true (merged), false (the release does not exist, a warning), or up-to-date (it is in the branch already)"
+
+runs:
+  using: "node24"
+  main: "dist/index.js"

@@ -1,0 +1,25 @@
+{
+  "name": "apply-commercial-license",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Changes a git repository to the commercial license: the Broadcom license header in place of the Apache one in the source files (Java, AspectJ, Groovy, Kotlin, JavaScript and gradle.properties by default), and the commercial license in place of the LICENSE* file. For a hotfix, which is the only release that is commercial",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "format": "prettier --write 'src/**/*.js' 'test/**/*.js'",
+    "check": "prettier --check 'src/**/*.js' 'test/**/*.js'",
+    "compile": "ncc build src/index.js --out dist --no-source-map-register",
+    "build": "npm run format && npm run compile",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@actions/core": "^3.0.1"
+  },
+  "devDependencies": {
+    "@vercel/ncc": "0.45.0",
+    "prettier": "3.9.10",
+    "vitest": "^5.0.0"
+  }
+}
