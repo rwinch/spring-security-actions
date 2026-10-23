@@ -25,6 +25,10 @@ They are written in JavaScript (Node 24), and every one of them is **self contai
 | [`start-branch`](start-branch/README.md) | Starts (or resets) a branch at a commit or a branch. |
 | [`update-versions`](update-versions/README.md) | Changes the versions of a version catalog, with one commit for each. |
 
+## The workflow of the release automation
+
+[`release-branches.yml`](.github/workflows/release-branches.yml) is a reusable workflow that builds `release/<version>` and the snapshot branches on a push to a disclosure branch, with the actions above and nothing else (every step is an action). [docs/release-branches.md](docs/release-branches.md) is the guide: what it builds, how to call it, the secret and the tokens it needs, and what to do when it fails.
+
 ## Working on an action
 
 ```shell

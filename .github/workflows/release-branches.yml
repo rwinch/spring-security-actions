@@ -1,0 +1,215 @@
+name: release-branches
+
+# Every push to a disclosure branch builds the branches of its release. They are built
+# again from the pushed commit every time, and nobody commits to them:
+#
+#   disclosure/frozen/<generation>   the release of the version of the branch
+#     release/<release version>               the release: the dependencies the release
+#                                             train asks for, and the version of the release
+#     disclosure/<version>-INTERNAL-SNAPSHOT  a snapshot of the version, with internal
+#                                             snapshots of the dependencies. It is thrown away
+#
+#   disclosure/active/<generation>   the hotfix of the version of the branch: the release
+#                                    of that version, and the fixes of the active disclosure
+#     disclosure/<hotfix>-SNAPSHOT            the release merged in (release/<version>, if
+#                                             it exists), the commercial license and headers,
+#                                             the hotfix version, and snapshots of the
+#                                             dependencies that have a hotfix
+#     release/<hotfix>                        the release of the hotfix, from that branch
+#
+# What the release train asks for is read from the release train repository, from the
+# branch of the date that the milestone of the release is due. If there is none, the
+# branches are built without the dependency updates. A release that is ready in the
+# train is not changed: the run fails, and says what to do.
+#
+# This is a reusable workflow: a project calls it from a workflow that is triggered by the
+# push of the disclosure branches (see docs/release-branches.md for the caller, the secret
+# and the variable it needs). The actions are the ones of this repository, each in a
+# directory of its own with a README.
+
+on:
+  workflow_call:
+    inputs:
+      release-train-repository:
+        description: "The repository of the release train (owner/repo), for example spring-io/release-train"
+        type: string
+        required: true
+    secrets:
+      RELEASE_AUTOMATION_TOKEN:
+        description: "The token that checks out and pushes the commercial repository (so that the push runs the workflows of the new branches), reads the release train, and creates the issues of the dependency updates in the OSS repository"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    name: Plan
+    runs-on: ubuntu-latest
+    outputs:
+      release: ${{ steps.plan.outputs.release }}
+      kind: ${{ steps.plan.outputs.kind }}
+      base-version: ${{ steps.plan.outputs.base-version }}
+      hotfix: ${{ steps.plan.outputs.hotfix }}
+      hotfix-of: ${{ steps.plan.outputs.hotfix-of }}
+      snapshot-branch: ${{ steps.plan.outputs.snapshot-branch }}
+      snapshot-version: ${{ steps.plan.outputs.snapshot-version }}
+    steps:
+      - name: Check out the pushed commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Read the version
+        id: version
+        uses: spring-io/spring-release-actions/compute-version@1b8671612c3eb3d9b9763e2d7b66f1a80d00ee95 # 0.0.6
+      - name: Decide what to build
+        id: plan
+        uses: rwinch/spring-security-actions/plan-release-branches@release-train-actions
+        with:
+          ref-name: ${{ github.ref_name }}
+          version: ${{ steps.version.outputs.version }}
+
+  build:
+    name: Build the branches
+    needs: plan
+    if: needs.plan.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    env:
+      KIND: ${{ needs.plan.outputs.kind }}
+      HOTFIX: ${{ needs.plan.outputs.hotfix }}
+      HOTFIX_OF: ${{ needs.plan.outputs.hotfix-of }}
+      BASE_VERSION: ${{ needs.plan.outputs.base-version }}
+      SNAPSHOT_BRANCH: ${{ needs.plan.outputs.snapshot-branch }}
+      SNAPSHOT_VERSION: ${{ needs.plan.outputs.snapshot-version }}
+    steps:
+      # Everything is built in this checkout, and only the push at the end is seen by
+      # anybody. The token is that of the push, which makes the push run the workflows
+      # of the new branches, as the push of a person does. The token of the workflow does not.
+      - name: Check out the pushed commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          token: ${{ secrets.RELEASE_AUTOMATION_TOKEN }}
+          fetch-depth: 0
+      - name: Set the git identity
+        uses: rwinch/spring-security-actions/git-identity@release-train-actions
+      # The disclosure branches only exist in the commercial repository, spring-merge-commercial.
+      # The project of the release train, and the OSS repository with the milestones and the
+      # issues, are named after it.
+      - name: Name the repositories
+        id: repositories
+        uses: rwinch/spring-security-actions/name-repositories@release-train-actions
+      - name: Work out the release version
+        id: release
+        uses: rwinch/spring-security-actions/compute-release-version@release-train-actions
+        with:
+          snapshot-version: ${{ env.BASE_VERSION }}
+          milestone-repository: ${{ steps.repositories.outputs.oss-repository }}
+          milestone-token: ${{ secrets.GITHUB_TOKEN }}
+      # The train is the one that the milestone of the release is due. If it has not been
+      # created, that is said in a notice, and the branches are built without the dependencies.
+      - name: Read the release train
+        id: train
+        uses: rwinch/spring-security-actions/load-train@release-train-actions
+        with:
+          release-train-repository: ${{ inputs.release-train-repository }}
+          date: ${{ steps.release.outputs.due-date }}
+          token: ${{ secrets.RELEASE_AUTOMATION_TOKEN }}
+      - name: Stop if the release is ready already
+        if: steps.train.outputs.found == 'true'
+        uses: rwinch/spring-security-actions/check-not-ready@release-train-actions
+        with:
+          train-file: ${{ steps.train.outputs.train-file }}
+          project: ${{ steps.repositories.outputs.project }}
+          version: ${{ steps.release.outputs.release-version }}
+          train-branch: ${{ steps.train.outputs.branch }}
+
+      # The snapshot branch: from the pushed commit. A hotfix has the release merged in, and
+      # then the commercial license and headers. Then its version, and the dependencies that
+      # have joined the release train, as snapshots. Nothing of that has an issue: it is
+      # thrown away, or replaced.
+      - name: Start the snapshot branch
+        uses: rwinch/spring-security-actions/start-branch@release-train-actions
+        with:
+          branch: ${{ env.SNAPSHOT_BRANCH }}
+          from: ${{ github.sha }}
+      # A hotfix is the release plus the fixes of the active disclosure, so it starts with the
+      # release merged in. The versions of the dependencies of the release come with it:
+      # a dependency that has no hotfix is left at the version that the release has.
+      - name: Merge the release into the hotfix
+        id: merge
+        if: env.KIND == 'active'
+        uses: rwinch/spring-security-actions/merge-release@release-train-actions
+        with:
+          release: ${{ env.HOTFIX_OF }}
+      - name: Apply the commercial license
+        if: env.KIND == 'active'
+        uses: rwinch/spring-security-actions/apply-commercial-license@release-train-actions
+        with:
+          commit-message: Commercial changes for ${{ steps.release.outputs.release-version }}
+      - name: Set the version of the snapshot
+        uses: rwinch/spring-security-actions/set-version@release-train-actions
+        with:
+          version: ${{ env.SNAPSHOT_VERSION }}
+          message: Set the version to ${{ env.SNAPSHOT_VERSION }}
+      - name: Work out the snapshots of the dependencies
+        id: snapshot-versions
+        if: steps.train.outputs.found == 'true'
+        uses: rwinch/spring-security-actions/map-train-versions@release-train-actions
+        with:
+          release-versions-file: ${{ steps.train.outputs.release-versions-file }}
+          train-file: ${{ steps.train.outputs.train-file }}
+          prefer-hotfix: ${{ env.HOTFIX }}
+          suffix: -INTERNAL-SNAPSHOT
+          hotfix-suffix: -SNAPSHOT
+      - name: Update the dependencies of the snapshot
+        if: steps.train.outputs.found == 'true'
+        uses: rwinch/spring-security-actions/update-versions@release-train-actions
+        with:
+          versions: ${{ steps.snapshot-versions.outputs.versions }}
+          require-issue: "false"
+
+      # The release branch: from the pushed commit, and for a hotfix from the snapshot
+      # branch. The dependencies of the release train, each with an issue and a commit,
+      # and the version of the release, last.
+      - name: Start the release branch
+        uses: rwinch/spring-security-actions/start-branch@release-train-actions
+        with:
+          branch: release/${{ steps.release.outputs.release-version }}
+          from: ${{ env.KIND == 'active' && env.SNAPSHOT_BRANCH || github.sha }}
+      - name: Work out the versions of the dependencies
+        id: versions
+        if: steps.train.outputs.found == 'true'
+        uses: rwinch/spring-security-actions/map-train-versions@release-train-actions
+        with:
+          release-versions-file: ${{ steps.train.outputs.release-versions-file }}
+          train-file: ${{ steps.train.outputs.train-file }}
+          prefer-hotfix: ${{ env.HOTFIX }}
+      # An issue that someone closed is a decision to leave the update: it is said in a
+      # notice, and is not in the updates.
+      - name: Make sure that there are issues
+        id: issues
+        if: steps.train.outputs.found == 'true'
+        uses: rwinch/spring-security-actions/ensure-dependency-issues@release-train-actions
+        with:
+          versions: ${{ steps.versions.outputs.versions }}
+          repository: ${{ steps.repositories.outputs.oss-repository }}
+          milestone: ${{ steps.release.outputs.release-version }}
+          labels: "type: dependency-upgrade"
+          token: ${{ secrets.RELEASE_AUTOMATION_TOKEN }}
+      - name: Update the dependencies of the release
+        if: steps.train.outputs.found == 'true'
+        uses: rwinch/spring-security-actions/update-versions@release-train-actions
+        with:
+          versions: ${{ steps.issues.outputs.updates }}
+      - name: Set the version of the release
+        uses: rwinch/spring-security-actions/set-version@release-train-actions
+        with:
+          version: ${{ steps.release.outputs.release-version }}
+          message: Release ${{ steps.release.outputs.release-version }}
+
+      # Both at once, or none: so a failure never leaves one of them built and not the other.
+      # It is forced, because the branches are built again from the pushed commit every time.
+      - name: Push the branches
+        uses: rwinch/spring-security-actions/push-branches@release-train-actions
+        with:
+          branches: |
+            release/${{ steps.release.outputs.release-version }}=${{ steps.release.outputs.release-version }}
+            ${{ env.SNAPSHOT_BRANCH }}=${{ env.SNAPSHOT_VERSION }}

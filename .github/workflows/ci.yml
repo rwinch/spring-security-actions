@@ -25,6 +25,8 @@ jobs:
     steps:
       - name: Check out the commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: Check that the release workflow has no script, only actions
+        run: "! grep -nE '^[[:space:]]+run:' .github/workflows/release-branches.yml"
       - name: Find the actions that have a package.json
         id: find
         run: |
@@ -51,6 +53,8 @@ jobs:
           node-version: 24
           cache: npm
           cache-dependency-path: ${{ matrix.action }}/package-lock.json
+      - name: Check that action.yml has no expression, which GitHub evaluates even in a description
+        run: "! grep -nE '[$][{][{]' action.yml"
       - name: Install the dependencies
         run: npm ci
       - name: Check the format
