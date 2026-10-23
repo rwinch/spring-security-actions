@@ -59,7 +59,7 @@ jobs:
 
 | Input or secret | What it is |
 |---|---|
-| `release-train-repository` (input) | The release train repository, `owner/repo`, for example `spring-io/release-train`. |
+| `release-train-repository` (input) | The release train repository, `owner/repo`. `spring-io/release-train` if it is not given, or empty. |
 | `RELEASE_AUTOMATION_TOKEN` (secret) | The token below. A reusable workflow gets only the secrets that its caller gives it. |
 
 `<ref>` is a tag or a commit of this repository. Pin a commit, as for any action that has access to a token. The workflow uses the actions of this repository at a ref that is written in it, so the ref of the caller and the one in the workflow are the same commit when it is pinned.
@@ -73,7 +73,7 @@ The caller needs one secret and one variable, which are settings of the **commer
 | Name | Kind | What it is |
 |---|---|---|
 | `RELEASE_AUTOMATION_TOKEN` | secret | A token that can read the release train repository, create issues in the OSS repository, and push to the commercial repository. See below. |
-| `RELEASE_TRAIN_REPOSITORY` | variable | The release train repository, `owner/repo`. The caller gives it as the input `release-train-repository`. |
+| `RELEASE_TRAIN_REPOSITORY` | variable | The release train repository, `owner/repo`. The caller gives it as the input `release-train-repository`. If it is not set, the release train is `spring-io/release-train`. |
 
 Everything that can be done with the token of the workflow itself, `GITHUB_TOKEN`, is: the permissions of the workflow are `contents: read`, and it reads the milestones of the OSS repository, which is public. `RELEASE_AUTOMATION_TOKEN` is only used where `GITHUB_TOKEN` cannot:
 

@@ -31,9 +31,10 @@ on:
   workflow_call:
     inputs:
       release-train-repository:
-        description: "The repository of the release train (owner/repo), for example spring-io/release-train"
+        description: "The repository of the release train (owner/repo). A caller that passes an empty value, as a variable that is not set is, gets the default"
         type: string
-        required: true
+        required: false
+        default: spring-io/release-train
     secrets:
       RELEASE_AUTOMATION_TOKEN:
         description: "The token that checks out and pushes the commercial repository (so that the push runs the workflows of the new branches), reads the release train, and creates the issues of the dependency updates in the OSS repository"
@@ -109,7 +110,7 @@ jobs:
         id: train
         uses: rwinch/spring-security-actions/load-train@release-train-actions
         with:
-          release-train-repository: ${{ inputs.release-train-repository }}
+          release-train-repository: ${{ inputs.release-train-repository || 'spring-io/release-train' }}
           date: ${{ steps.release.outputs.due-date }}
           token: ${{ secrets.RELEASE_AUTOMATION_TOKEN }}
       - name: Stop if the release is ready already
