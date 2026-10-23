@@ -1,0 +1,37 @@
+# spring-security-actions
+
+GitHub Actions of the Spring Security projects. Every action is in a directory of its own, with its own `README.md` that documents its inputs, outputs and secrets.
+
+Use one with `uses: spring-io/spring-security-actions/<action>@<ref>`.
+
+## The actions of the release automation
+
+They are written in JavaScript (Node 24), and every one of them is **self contained**: it has its own `package.json` and lock file, its own sources in `src/`, its own tests in `test/` (with the fake of GitHub and the fixtures that they need), and its own `dist/`, the bundle that GitHub runs. Nothing is shared between them, so one can be changed, updated and used without the others. Each one can be run locally too: see its README.
+
+| Action | What it does |
+|---|---|
+| [`apply-commercial-license`](apply-commercial-license/README.md) | Changes a repository to the commercial license: headers and `LICENSE.txt`, for a hotfix. |
+| [`check-not-ready`](check-not-ready/README.md) | Fails if the release train has the release as ready already. |
+| [`compute-release-version`](compute-release-version/README.md) | The release version of a snapshot version, and its due date, from the milestones of a repository. |
+| [`ensure-dependency-issues`](ensure-dependency-issues/README.md) | An issue for every dependency update, in a milestone. It makes the ones that are missing. |
+| [`git-identity`](git-identity/README.md) | Sets who commits: `github-actions[bot]` by default. |
+| [`load-train`](load-train/README.md) | Reads the release train of a date. |
+| [`map-train-versions`](map-train-versions/README.md) | Which versions of a version catalog the release train asks to change, and to what. |
+| [`merge-release`](merge-release/README.md) | Merges the release into the branch of its hotfix. |
+| [`name-repositories`](name-repositories/README.md) | The project and its OSS repository, from the commercial repository. |
+| [`plan-release-branches`](plan-release-branches/README.md) | What the push of a disclosure branch builds. |
+| [`push-branches`](push-branches/README.md) | Pushes branches at once or none, and summarizes them. |
+| [`set-version`](set-version/README.md) | Sets the version of `gradle.properties`, in a commit of its own. |
+| [`start-branch`](start-branch/README.md) | Starts (or resets) a branch at a commit or a branch. |
+| [`update-versions`](update-versions/README.md) | Changes the versions of a version catalog, with one commit for each. |
+
+## Working on an action
+
+```shell
+cd <action>
+npm ci
+npm test            # no network and no token
+npm run build       # formats, and bundles src/ into dist/: commit both
+```
+
+`dist/` is committed, because GitHub runs it with no `npm install`, and CI fails if it is not the build of `src/`. Dependabot updates the dependencies of every action, and the actions that these use.

@@ -1,0 +1,63 @@
+name: CI
+
+# Every action with a package.json (the JavaScript ones) is checked on its own: formatted,
+# built (dist/ is what GitHub runs, so it must be the build of src/), and tested.
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  actions:
+    name: Find the JavaScript actions
+    runs-on: ubuntu-latest
+    outputs:
+      names: ${{ steps.find.outputs.names }}
+    steps:
+      - name: Check out the commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: Find the actions that have a package.json
+        id: find
+        run: |
+          names=$(for file in */package.json; do dirname "$file"; done | jq --raw-input --slurp --compact-output 'split("\n") | map(select(length > 0))')
+          echo "names=$names" >> "$GITHUB_OUTPUT"
+
+  check:
+    name: ${{ matrix.action }}
+    needs: actions
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        action: ${{ fromJson(needs.actions.outputs.names) }}
+    defaults:
+      run:
+        working-directory: ${{ matrix.action }}
+    steps:
+      - name: Check out the commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: ${{ matrix.action }}/package-lock.json
+      - name: Install the dependencies
+        run: npm ci
+      - name: Check the format
+        run: npm run check
+      - name: Build
+        run: npm run compile
+      - name: Check that dist is the build of src
+        run: git diff --exit-code -- dist
+      - name: Test
+        run: npm test
