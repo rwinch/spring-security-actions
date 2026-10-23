@@ -22,4 +22,4 @@ runs:
     - name: Test with Gradle
       uses: $/run-gradle
       with:
-        gradle-args: --refresh-dependencies -PforceMavenRepositories=snapshot ${{ inputs.gradle-args }} --stacktrace
+        gradle-args: test --refresh-dependencies -PforceMavenRepositories=snapshot ${{ inputs.gradle-args }} --stacktrace
