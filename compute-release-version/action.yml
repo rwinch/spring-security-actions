@@ -15,12 +15,18 @@ inputs:
     description: "Whether the milestone must have a due date. Set to false to allow it not to"
     required: false
     default: "true"
+  fail-if-missing:
+    description: "Whether the action fails if the milestone does not exist. Set to false to end with a notice instead, and the output found set to false"
+    required: false
+    default: "true"
 
 outputs:
   release-version:
     description: "The version the snapshot version is released as, the title of its milestone (for example 7.0.1 or 7.1.0-RC1)"
   due-date:
     description: "The due date of that milestone, as a date in UTC (YYYY-MM-DD). Empty if it has none and require-due-date is false"
+  found:
+    description: "true if the milestone exists, false if it does not and fail-if-missing is false. Then release-version and due-date are empty"
 
 runs:
   using: "node24"

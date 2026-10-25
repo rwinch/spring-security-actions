@@ -19,18 +19,20 @@ The due date is the date of the due date of the milestone in UTC. GitHub keeps o
 | `milestone-repository` | yes | The repository (`owner/repo`) whose milestones decide. |
 | `milestone-token` | no | A token that can read its milestones. Without one, the request is unauthenticated, which only works for a public repository, and is rate limited. |
 | `require-due-date` | no, `true` | Whether the milestone must have a due date. |
+| `fail-if-missing` | no, `true` | Whether the action fails if the milestone does not exist. If `false`, it ends successfully with the notice **No milestone**, which says which milestone is missing and in which repository, and the output `found` is `false`. A milestone that exists without a due date is still an error. |
 
 ## Outputs
 
 | Output | Description |
 |---|---|
+| `found` | `true` if the milestone exists. `false` if it does not and `fail-if-missing` is `false`: then the two outputs below are empty. |
 | `release-version` | The title of the milestone: `7.0.1`, or `7.1.0-RC1`. |
 | `due-date` | Its due date, `YYYY-MM-DD` (UTC). Empty if it has none and `require-due-date` is `false`. |
 
 ## Fails when
 
 - the version is not a snapshot version, or is not `<major>.<minor>.<patch>[.<hotfix>]-SNAPSHOT`
-- the milestone does not exist (for a `.0` version: there is no open milestone of its releases)
+- the milestone does not exist (for a `.0` version: there is no open milestone of its releases), unless `fail-if-missing` is `false`. Then it ends with a notice, and `found` is `false`.
 - the milestone has no due date, unless `require-due-date` is `false`
 - GitHub answers with an error. A `404` means the repository does not exist, or the token cannot read it.
 
@@ -43,7 +45,7 @@ The action only reads milestones.
 ** a fine-grained personal access token: **Issues: Read-only** on that repository
 ** a classic personal access token: the `repo` scope
 +
-Create it at https://github.com/settings/personal-access-tokens (fine-grained) or https://github.com/settings/tokens (classic), and store it as a secret of the repository the workflow runs in. The release workflow reads the milestones of a release (the public OSS repository) with `GITHUB_TOKEN`, and the milestone of a hotfix (the private commercial repository) with its secret `RELEASE_AUTOMATION_TOKEN`.
+Create it at https://github.com/settings/personal-access-tokens (fine-grained) or https://github.com/settings/tokens (classic), and store it as a secret of the repository the workflow runs in. The release workflow reads the milestones of a release (the public OSS repository) with `GITHUB_TOKEN`, and the milestone of a hotfix (the private commercial repository) with its secret `RELEASE_AUTOMATION_TOKEN`, in its plan job, with `fail-if-missing` set to `false`: a version without a milestone ends the run with a notice, and builds nothing.
 
 ## Using it
 
