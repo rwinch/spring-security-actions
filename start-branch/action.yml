@@ -6,7 +6,7 @@ inputs:
     description: "The branch to start, for example `release/7.0.1`."
     required: true
   from:
-    description: "What it starts at: a commit (the SHA of the pushed commit) or a branch (`disclosure/7.0.1.1-SNAPSHOT`)."
+    description: "What it starts at: a commit (the SHA of the pushed commit) or a branch (`embargoed/7.0.1.1-SNAPSHOT`)."
     required: true
   path:
     description: "The directory of the git repository."

@@ -1,34 +1,34 @@
 # The release automation
 
-A push to a disclosure branch of the commercial repository builds the branches of its release, with no one doing it by hand. This is the guide to it: what it builds, what it needs, how to give it the secrets that it needs, and what to do when it fails.
+A push to an embargoed branch of the commercial repository builds the branches of its release, with no one doing it by hand. This is the guide to it: what it builds, what it needs, how to give it the secrets that it needs, and what to do when it fails.
 
 ## What a push builds
 
-The reusable workflow [`release-branches.yml`](../.github/workflows/release-branches.yml) of this repository, and the actions that it uses (each is a directory of this repository, with a README). The project calls it for a push to `disclosure/frozen/**` or `disclosure/active/**`. It builds the branches of the release again from the pushed commit, every time, and pushes them once, both or none, forced. Nobody commits to them.
+The reusable workflow [`release-branches.yml`](../.github/workflows/release-branches.yml) of this repository, and the actions that it uses (each is a directory of this repository, with a README). The project calls it for a push to `embargoed/frozen/**` or `embargoed/active/**`. It builds the branches of the release again from the pushed commit, every time, and pushes them once, both or none, forced. Nobody commits to them.
 
-A push to a snapshot branch that it built (`disclosure/*-SNAPSHOT`) is for the project to publish: the pushes are made with `RELEASE_AUTOMATION_TOKEN`, so they run the workflows of the project.
+A push to a snapshot branch that it built (`embargoed/*-SNAPSHOT`) is for the project to publish: the pushes are made with `RELEASE_AUTOMATION_TOKEN`, so they run the workflows of the project.
 
-|  | A frozen disclosure, `disclosure/frozen/7.0.x` (`7.0.1-SNAPSHOT`) | An active disclosure, `disclosure/active/7.0.x` (`7.0.1-SNAPSHOT`) |
+|  | A frozen embargoed branch, `embargoed/frozen/7.0.x` (`7.0.1-SNAPSHOT`) | An active embargoed branch, `embargoed/active/7.0.x` (`7.0.1-SNAPSHOT`) |
 |---|---|---|
 | The release | `release/7.0.1`, from the pushed commit. For a `.0` version (`7.1.0-SNAPSHOT`) the release is the next milestone: `release/7.1.0-RC1` | `release/7.0.1.1`, **from the snapshot branch**: it is the hotfix of `7.0.1` |
 | The commits of the release | one for each dependency that the release train asks for, with its issue (`Closes gh-123`), and then `Release 7.0.1` | one for each dependency that has a hotfix version in the train (the others keep the version that the release has), and then `Release 7.0.1.1` |
-| The snapshot branch | `disclosure/7.0.1-INTERNAL-SNAPSHOT`: its version, and an internal snapshot of every dependency that has joined the train (no issues). Thrown away when the release is done | `disclosure/7.0.1.1-SNAPSHOT`: `release/7.0.1` merged in first, then the commercial license and the Broadcom headers, its version, and a snapshot of every dependency that has a hotfix version in the train (no issues) |
-| Not built | a hotfix (a frozen disclosure has none) | nothing at all for a version that ends with `.0`: it is not a patch release, so it has no hotfix |
+| The snapshot branch | `embargoed/7.0.1-INTERNAL-SNAPSHOT`: its version, and an internal snapshot of every dependency that has joined the train (no issues). Thrown away when the release is done | `embargoed/7.0.1.1-SNAPSHOT`: `release/7.0.1` merged in first, then the commercial license and the Broadcom headers, its version, and a snapshot of every dependency that has a hotfix version in the train (no issues) |
+| Not built | a hotfix (a frozen embargoed branch has none) | nothing at all for a version that ends with `.0`: it is not a patch release, so it has no hotfix |
 
 ### The hotfix is built on the release
 
-A hotfix is the release plus the fixes of the active disclosure, so the snapshot branch of a hotfix starts with `release/7.0.1` **merged in** (a merge commit, `Merge release/7.0.1 into disclosure/7.0.1.1-SNAPSHOT`), and the release of the hotfix is built on that snapshot. Both have the release in their history. The action `merge-release` does it.
+A hotfix is the release plus the fixes of the active embargoed branch, so the snapshot branch of a hotfix starts with `release/7.0.1` **merged in** (a merge commit, `Merge release/7.0.1 into embargoed/7.0.1.1-SNAPSHOT`), and the release of the hotfix is built on that snapshot. Both have the release in their history. The action `merge-release` does it.
 
-- **The release does not exist yet** (the frozen disclosure has not been pushed, so nothing built it): the run warns (**No release to build the hotfix on**), and the hotfix is built from the active disclosure alone. It is built on the release the next time that the active disclosure is pushed after the release exists, for example when the frozen disclosure is merged into it. A hotfix that was built before has an issue for every dependency, and the dependencies that have no hotfix do not need theirs any more: they stay open, and are closed by hand.
-- **Both sides changed the same lines**: the side of the active disclosure is kept, and a notice (**Changed on both sides**) says which files both changed. A conflict that cannot be settled like that, a file that one side deleted and the other changed, fails the run, and says to merge `release/7.0.1` into the active disclosure by hand (the merge forward), and push it.
+- **The release does not exist yet** (the frozen embargoed branch has not been pushed, so nothing built it): the run warns (**No release to build the hotfix on**), and the hotfix is built from the active embargoed branch alone. It is built on the release the next time that the active embargoed branch is pushed after the release exists, for example when the frozen embargoed branch is merged into it. A hotfix that was built before has an issue for every dependency, and the dependencies that have no hotfix do not need theirs any more: they stay open, and are closed by hand.
+- **Both sides changed the same lines**: the side of the active embargoed branch is kept, and a notice (**Changed on both sides**) says which files both changed. A conflict that cannot be settled like that, a file that one side deleted and the other changed, fails the run, and says to merge `release/7.0.1` into the active embargoed branch by hand (the merge forward), and push it.
 - **The versions of the dependencies come with the release**, so a dependency that has no hotfix version in the release train is left at the version that the release has: no snapshot, no commit and no issue for it in the hotfix. The hotfix ends with the same versions as it would without the merge, and has an issue for each dependency that does have a hotfix.
-- A release that is built again later is only picked up by the hotfix the next time that the active disclosure is pushed.
+- A release that is built again later is only picked up by the hotfix the next time that the active embargoed branch is pushed.
 
 Which versions of the dependencies the release needs comes from the **release train**, a repository with a branch for each release date (`2026.11.19`) that has `release-versions.json` and `train.yml`. The branch is the date that the milestone of the release is due. If that train has not been created, the branches are built without the dependency updates. If the release is **ready** in the train, it is not changed: the run fails and says what to do.
 
 ## Calling it
 
-The project has a workflow that the push of the disclosure branches triggers, and that calls this one. The trigger, the concurrency and the permissions are the project's: a called workflow cannot widen the permissions of the caller.
+The project has a workflow that the push of the embargoed branches triggers, and that calls this one. The trigger, the concurrency and the permissions are the project's: a called workflow cannot widen the permissions of the caller.
 
 ```yaml
 name: release-branches
@@ -36,8 +36,8 @@ name: release-branches
 on:
   push:
     branches:
-      - "disclosure/frozen/**"
-      - "disclosure/active/**"
+      - "embargoed/frozen/**"
+      - "embargoed/active/**"
 
 permissions:
   contents: read
@@ -64,7 +64,7 @@ jobs:
 
 `<ref>` is a tag or a commit of this repository. Pin a commit, as for any action that has access to a token. The workflow calls the actions of this repository at a commit that is written in it, each with a comment that names the tag. That commit is not the one of the workflow: it is the one that the actions were released at, so a caller that pins a commit of the workflow gets exactly the actions that it names.
 
-The workflow runs from the pushed branch, so the workflow of the project must be on every disclosure branch: it comes with the merges forward.
+The workflow runs from the pushed branch, so the workflow of the project must be on every embargoed branch: it comes with the merges forward.
 
 ## The secret, the variable, and the tokens
 
@@ -129,8 +129,8 @@ Every message says what went wrong. These are the usual ones:
 | **Work out the release version**: `has no milestone 7.0.1` | Create the milestone of the release in the OSS repository, with a due date. |
 | **Work out the release version**: `has no due date` | Set the due date of the milestone. It is the date of the release train, `2026-11-19` for the train `2026.11.19`. |
 | **Read the release train**: `404 ... cannot read it` | The token cannot read the release train repository, or `RELEASE_TRAIN_REPOSITORY` is wrong. A train that has not been created is not an error: the branches are built without the dependencies. |
-| **Merge the release into the hotfix**: `could not be merged` | The active disclosure and the release changed a file in a way that the side of the active disclosure cannot settle. Merge `release/7.0.1` into the active disclosure by hand (the merge forward), push it, and the hotfix is built again. |
-| **Merge the release into the hotfix**: warning `No release to build the hotfix on` | Not a failure: the release has not been built. Push the frozen disclosure, and push the active disclosure again. |
+| **Merge the release into the hotfix**: `could not be merged` | The active embargoed branch and the release changed a file in a way that the side of the active embargoed branch cannot settle. Merge `release/7.0.1` into the active embargoed branch by hand (the merge forward), push it, and the hotfix is built again. |
+| **Merge the release into the hotfix**: warning `No release to build the hotfix on` | Not a failure: the release has not been built. Push the frozen embargoed branch, and push the active embargoed branch again. |
 | **Make sure that there are issues**: `403` | The token cannot create issues in the OSS repository: see what it needs. |
 | **Work out the versions of the dependencies**: `is newer than the ... of the train` | The version catalog has a newer version of a dependency than the release train. Something is out of order: look at it. The action does not downgrade. |
 | **Set the version of the release**: `git does not know who commits` | git has no `user.name` and `user.email`. The workflow sets them, so this is a change to the workflow. |
@@ -141,7 +141,7 @@ A run that was cancelled by a newer push of the same branch is not a failure: th
 ## What a project needs
 
 - The version catalog, `gradle/libs.versions.toml`, names a version after the project of the release train that releases it (`spring-framework = "7.0.9"`), in its `[versions]` section, one on a line. A library refers to it with `version.ref`.
-- The OSS repository has the milestones of the releases, with their due dates (at noon UTC). The commercial repository is named like it, with `-commercial`, and has the disclosure branches.
+- The OSS repository has the milestones of the releases, with their due dates (at noon UTC). The commercial repository is named like it, with `-commercial`, and has the embargoed branches.
 - `apply-commercial-license` has the commercial license for a hotfix: give another with `license-file`. It changes the Apache headers of the Java, AspectJ, Groovy, Kotlin and JavaScript files and of `gradle.properties` (`header-files`), and replaces the `LICENSE*` file of the root (`license-target`). Where a license is repeated in several modules, make them links to one file.
 - The actions are written for Node 24, as the actions of [spring-release-actions](https://github.com/spring-io/spring-release-actions) are. [The README](../README.md) says how to build and test them.
 - GitHub is retiring the version `2022-11-28` of its API, which is the one that the actions use. It is a warning for now: see `ensure-dependency-issues`.

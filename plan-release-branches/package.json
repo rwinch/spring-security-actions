@@ -2,7 +2,7 @@
   "name": "plan-release-branches",
   "version": "0.0.1",
   "private": true,
-  "description": "Decides what the push of a disclosure branch builds: the release, the snapshot branch, and for an active disclosure the hotfix",
+  "description": "Decides what the push of an embargoed branch builds: the release, the snapshot branch, and for an active embargoed branch the hotfix",
   "type": "module",
   "engines": {
     "node": ">=24"

@@ -5,24 +5,24 @@ const SNAPSHOT_VERSION = /^(\d+\.\d+\.\d+(?:\.\d+)?)-SNAPSHOT$/;
 const HOTFIX = /^\d+\.\d+\.\d+\.\d+$/;
 
 /**
- * Decides what the push of a disclosure branch builds, from the branch that was pushed
- * (disclosure/frozen/<generation> or disclosure/active/<generation>) and the version of
+ * Decides what the push of an embargoed branch builds, from the branch that was pushed
+ * (embargoed/frozen/<generation> or embargoed/active/<generation>) and the version of
  * gradle.properties on it (<version>-SNAPSHOT). It returns:
  *
  *   release           false if there is nothing to build: a version that ends with .0 on an
- *                     active disclosure is not a patch release, so it has no hotfix.
+ *                     active embargoed branch is not a patch release, so it has no hotfix.
  *                     Everything else below is only there if it is true
  *   kind              frozen or active
  *   baseVersion       the snapshot version that the release version is worked out from: the
  *                     version of the frozen branch (7.0.1-SNAPSHOT), or the hotfix version
  *                     of an active one (7.0.1.1-SNAPSHOT)
- *   hotfix            true for an active disclosure: a hotfix is built, and hotfix versions
+ *   hotfix            true for an active embargoed branch: a hotfix is built, and hotfix versions
  *                     of the dependencies are preferred
  *   hotfixOf          for a hotfix, the release branch that it fixes and is built on:
- *                     release/7.0.1 for 7.0.1-SNAPSHOT. Empty for a frozen disclosure
+ *                     release/7.0.1 for 7.0.1-SNAPSHOT. Empty for a frozen embargoed branch
  *   snapshotBranch    the branch of the snapshot that the release branch is built on (active)
- *                     or that is thrown away (frozen): disclosure/7.0.1-INTERNAL-SNAPSHOT,
- *                     disclosure/7.0.1.1-SNAPSHOT
+ *                     or that is thrown away (frozen): embargoed/7.0.1-INTERNAL-SNAPSHOT,
+ *                     embargoed/7.0.1.1-SNAPSHOT
  *   snapshotVersion   the version of that branch: 7.0.1-INTERNAL-SNAPSHOT, 7.0.1.1-SNAPSHOT.
  *                     A snapshot never carries a milestone or a release candidate, so it is the
  *                     version of the branch with -SNAPSHOT replaced, and not the release.
@@ -30,13 +30,13 @@ const HOTFIX = /^\d+\.\d+\.\d+\.\d+$/;
  */
 export function plan({ refName, version }) {
   let kind;
-  if (refName.startsWith("disclosure/frozen/")) {
+  if (refName.startsWith("embargoed/frozen/")) {
     kind = "frozen";
-  } else if (refName.startsWith("disclosure/active/")) {
+  } else if (refName.startsWith("embargoed/active/")) {
     kind = "active";
   } else {
     throw new Error(
-      `${refName} is not a disclosure branch: expected disclosure/frozen/* or disclosure/active/*`,
+      `${refName} is not an embargoed branch: expected embargoed/frozen/* or embargoed/active/*`,
     );
   }
   const match = SNAPSHOT_VERSION.exec(version);
@@ -50,7 +50,7 @@ export function plan({ refName, version }) {
   if (kind === "frozen") {
     if (HOTFIX.test(plain)) {
       throw new Error(
-        `${refName} has the version ${version}, a hotfix: only an active disclosure has one, and a hotfix has no internal snapshot`,
+        `${refName} has the version ${version}, a hotfix: only an active embargoed branch has one, and a hotfix has no internal snapshot`,
       );
     }
     return {
@@ -59,14 +59,14 @@ export function plan({ refName, version }) {
       baseVersion: version,
       hotfix: false,
       hotfixOf: "",
-      snapshotBranch: `disclosure/${plain}-INTERNAL-SNAPSHOT`,
+      snapshotBranch: `embargoed/${plain}-INTERNAL-SNAPSHOT`,
       snapshotVersion: `${plain}-INTERNAL-SNAPSHOT`,
     };
   }
 
   if (HOTFIX.test(plain)) {
     throw new Error(
-      `${refName} has the version ${version}, which is a hotfix already: an active disclosure has the version of the release that it fixes`,
+      `${refName} has the version ${version}, which is a hotfix already: an active embargoed branch has the version of the release that it fixes`,
     );
   }
   if (plain.endsWith(".0")) {
@@ -79,7 +79,7 @@ export function plan({ refName, version }) {
     baseVersion: `${hotfix}-SNAPSHOT`,
     hotfix: true,
     hotfixOf: `release/${plain}`,
-    snapshotBranch: `disclosure/${hotfix}-SNAPSHOT`,
+    snapshotBranch: `embargoed/${hotfix}-SNAPSHOT`,
     snapshotVersion: `${hotfix}-SNAPSHOT`,
   };
 }
@@ -104,11 +104,11 @@ export async function main() {
     );
   } else if (result.kind === "frozen") {
     core.info(
-      `${refName} is a frozen disclosure: the release of ${version}, and the internal snapshot of it`,
+      `${refName} is a frozen embargoed branch: the release of ${version}, and the internal snapshot of it`,
     );
   } else {
     core.info(
-      `${refName} is an active disclosure: the hotfix ${result.baseVersion.replace("-SNAPSHOT", "")} of ${version}`,
+      `${refName} is an active embargoed branch: the hotfix ${result.baseVersion.replace("-SNAPSHOT", "")} of ${version}`,
     );
   }
   for (const [key, name] of Object.entries(OUTPUTS)) {

@@ -13,7 +13,7 @@ Starts a branch at a commit or at another branch, and switches to it. the releas
 | Input | Default | Description |
 |---|---|---|
 | `branch` | required | The branch to start, for example `release/7.0.1`. |
-| `from` | required | What it starts at: a commit (the SHA of the pushed commit) or a branch (`disclosure/7.0.1.1-SNAPSHOT`). |
+| `from` | required | What it starts at: a commit (the SHA of the pushed commit) or a branch (`embargoed/7.0.1.1-SNAPSHOT`). |
 | `path` | `.` | The directory of the git repository. |
 
 ## Outputs
@@ -31,7 +31,7 @@ None, it only reads and writes in the directory of the repository.
 ```yaml
 - uses: spring-io/spring-security-actions/start-branch@v1
   with:
-    branch: disclosure/7.0.1-INTERNAL-SNAPSHOT
+    branch: embargoed/7.0.1-INTERNAL-SNAPSHOT
     from: ${{ github.sha }}
 ```
 

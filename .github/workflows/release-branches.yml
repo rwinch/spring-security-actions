@@ -1,17 +1,17 @@
 name: release-branches
 
-# Every push to a disclosure branch builds the branches of its release. They are built
+# Every push to an embargoed branch builds the branches of its release. They are built
 # again from the pushed commit every time, and nobody commits to them:
 #
-#   disclosure/frozen/<generation>   the release of the version of the branch
+#   embargoed/frozen/<generation>   the release of the version of the branch
 #     release/<release version>               the release: the dependencies the release
 #                                             train asks for, and the version of the release
-#     disclosure/<version>-INTERNAL-SNAPSHOT  a snapshot of the version, with internal
+#     embargoed/<version>-INTERNAL-SNAPSHOT  a snapshot of the version, with internal
 #                                             snapshots of the dependencies. It is thrown away
 #
-#   disclosure/active/<generation>   the hotfix of the version of the branch: the release
-#                                    of that version, and the fixes of the active disclosure
-#     disclosure/<hotfix>-SNAPSHOT            the release merged in (release/<version>, if
+#   embargoed/active/<generation>   the hotfix of the version of the branch: the release
+#                                    of that version, and the fixes of the active embargoed branch
+#     embargoed/<hotfix>-SNAPSHOT            the release merged in (release/<version>, if
 #                                             it exists), the commercial license and headers,
 #                                             the hotfix version, and snapshots of the
 #                                             dependencies that have a hotfix
@@ -23,7 +23,7 @@ name: release-branches
 # train is not changed: the run fails, and says what to do.
 #
 # This is a reusable workflow: a project calls it from a workflow that is triggered by the
-# push of the disclosure branches (see docs/release-branches.md for the caller, the secret
+# push of the embargoed branches (see docs/release-branches.md for the caller, the secret
 # and the variable it needs). The actions are the ones of this repository, each in a
 # directory of its own with a README.
 
@@ -63,7 +63,7 @@ jobs:
         uses: spring-io/spring-release-actions/compute-version@1b8671612c3eb3d9b9763e2d7b66f1a80d00ee95 # 0.0.6
       - name: Decide what to build
         id: plan
-        uses: spring-io/spring-security-actions/plan-release-branches@2a3eb91b5fb2ad8c5fe3af780292cc7fd4459d99 # 0.0.6
+        uses: spring-io/spring-security-actions/plan-release-branches@858d5da859066dedb6525ac0dd0824ba0ec8c0bd # 0.0.7
         with:
           ref-name: ${{ github.ref_name }}
           version: ${{ steps.version.outputs.version }}
@@ -90,16 +90,16 @@ jobs:
           token: ${{ secrets.RELEASE_AUTOMATION_TOKEN }}
           fetch-depth: 0
       - name: Set the git identity
-        uses: spring-io/spring-security-actions/git-identity@2a3eb91b5fb2ad8c5fe3af780292cc7fd4459d99 # 0.0.6
-      # The disclosure branches only exist in the commercial repository, spring-security-commercial.
+        uses: spring-io/spring-security-actions/git-identity@858d5da859066dedb6525ac0dd0824ba0ec8c0bd # 0.0.7
+      # The embargoed branches only exist in the commercial repository, spring-security-commercial.
       # The project of the release train, and the OSS repository with the milestones and the
       # issues, are named after it.
       - name: Name the repositories
         id: repositories
-        uses: spring-io/spring-security-actions/name-repositories@2a3eb91b5fb2ad8c5fe3af780292cc7fd4459d99 # 0.0.6
+        uses: spring-io/spring-security-actions/name-repositories@858d5da859066dedb6525ac0dd0824ba0ec8c0bd # 0.0.7
       - name: Work out the release version
         id: release
-        uses: spring-io/spring-security-actions/compute-release-version@2a3eb91b5fb2ad8c5fe3af780292cc7fd4459d99 # 0.0.6
+        uses: spring-io/spring-security-actions/compute-release-version@858d5da859066dedb6525ac0dd0824ba0ec8c0bd # 0.0.7
         with:
           snapshot-version: ${{ env.BASE_VERSION }}
           milestone-repository: ${{ steps.repositories.outputs.oss-repository }}
@@ -108,14 +108,14 @@ jobs:
       # created, that is said in a notice, and the branches are built without the dependencies.
       - name: Read the release train
         id: train
-        uses: spring-io/spring-security-actions/load-train@2a3eb91b5fb2ad8c5fe3af780292cc7fd4459d99 # 0.0.6
+        uses: spring-io/spring-security-actions/load-train@858d5da859066dedb6525ac0dd0824ba0ec8c0bd # 0.0.7
         with:
           release-train-repository: ${{ inputs.release-train-repository || 'spring-io/release-train' }}
           date: ${{ steps.release.outputs.due-date }}
           token: ${{ secrets.RELEASE_AUTOMATION_TOKEN }}
       - name: Stop if the release is ready already
         if: steps.train.outputs.found == 'true'
-        uses: spring-io/spring-security-actions/check-not-ready@2a3eb91b5fb2ad8c5fe3af780292cc7fd4459d99 # 0.0.6
+        uses: spring-io/spring-security-actions/check-not-ready@858d5da859066dedb6525ac0dd0824ba0ec8c0bd # 0.0.7
         with:
           train-file: ${{ steps.train.outputs.train-file }}
           project: ${{ steps.repositories.outputs.project }}
@@ -127,33 +127,33 @@ jobs:
       # have joined the release train, as snapshots. Nothing of that has an issue: it is
       # thrown away, or replaced.
       - name: Start the snapshot branch
-        uses: spring-io/spring-security-actions/start-branch@2a3eb91b5fb2ad8c5fe3af780292cc7fd4459d99 # 0.0.6
+        uses: spring-io/spring-security-actions/start-branch@858d5da859066dedb6525ac0dd0824ba0ec8c0bd # 0.0.7
         with:
           branch: ${{ env.SNAPSHOT_BRANCH }}
           from: ${{ github.sha }}
-      # A hotfix is the release plus the fixes of the active disclosure, so it starts with the
+      # A hotfix is the release plus the fixes of the active embargoed branch, so it starts with the
       # release merged in. The versions of the dependencies of the release come with it:
       # a dependency that has no hotfix is left at the version that the release has.
       - name: Merge the release into the hotfix
         id: merge
         if: env.KIND == 'active'
-        uses: spring-io/spring-security-actions/merge-release@2a3eb91b5fb2ad8c5fe3af780292cc7fd4459d99 # 0.0.6
+        uses: spring-io/spring-security-actions/merge-release@858d5da859066dedb6525ac0dd0824ba0ec8c0bd # 0.0.7
         with:
           release: ${{ env.HOTFIX_OF }}
       - name: Apply the commercial license
         if: env.KIND == 'active'
-        uses: spring-io/spring-security-actions/apply-commercial-license@2a3eb91b5fb2ad8c5fe3af780292cc7fd4459d99 # 0.0.6
+        uses: spring-io/spring-security-actions/apply-commercial-license@858d5da859066dedb6525ac0dd0824ba0ec8c0bd # 0.0.7
         with:
           commit-message: Commercial changes for ${{ steps.release.outputs.release-version }}
       - name: Set the version of the snapshot
-        uses: spring-io/spring-security-actions/set-version@2a3eb91b5fb2ad8c5fe3af780292cc7fd4459d99 # 0.0.6
+        uses: spring-io/spring-security-actions/set-version@858d5da859066dedb6525ac0dd0824ba0ec8c0bd # 0.0.7
         with:
           version: ${{ env.SNAPSHOT_VERSION }}
           message: Set the version to ${{ env.SNAPSHOT_VERSION }}
       - name: Work out the snapshots of the dependencies
         id: snapshot-versions
         if: steps.train.outputs.found == 'true'
-        uses: spring-io/spring-security-actions/map-train-versions@2a3eb91b5fb2ad8c5fe3af780292cc7fd4459d99 # 0.0.6
+        uses: spring-io/spring-security-actions/map-train-versions@858d5da859066dedb6525ac0dd0824ba0ec8c0bd # 0.0.7
         with:
           release-versions-file: ${{ steps.train.outputs.release-versions-file }}
           train-file: ${{ steps.train.outputs.train-file }}
@@ -162,7 +162,7 @@ jobs:
           hotfix-suffix: -SNAPSHOT
       - name: Update the dependencies of the snapshot
         if: steps.train.outputs.found == 'true'
-        uses: spring-io/spring-security-actions/update-versions@2a3eb91b5fb2ad8c5fe3af780292cc7fd4459d99 # 0.0.6
+        uses: spring-io/spring-security-actions/update-versions@858d5da859066dedb6525ac0dd0824ba0ec8c0bd # 0.0.7
         with:
           versions: ${{ steps.snapshot-versions.outputs.versions }}
           require-issue: "false"
@@ -171,14 +171,14 @@ jobs:
       # branch. The dependencies of the release train, each with an issue and a commit,
       # and the version of the release, last.
       - name: Start the release branch
-        uses: spring-io/spring-security-actions/start-branch@2a3eb91b5fb2ad8c5fe3af780292cc7fd4459d99 # 0.0.6
+        uses: spring-io/spring-security-actions/start-branch@858d5da859066dedb6525ac0dd0824ba0ec8c0bd # 0.0.7
         with:
           branch: release/${{ steps.release.outputs.release-version }}
           from: ${{ env.KIND == 'active' && env.SNAPSHOT_BRANCH || github.sha }}
       - name: Work out the versions of the dependencies
         id: versions
         if: steps.train.outputs.found == 'true'
-        uses: spring-io/spring-security-actions/map-train-versions@2a3eb91b5fb2ad8c5fe3af780292cc7fd4459d99 # 0.0.6
+        uses: spring-io/spring-security-actions/map-train-versions@858d5da859066dedb6525ac0dd0824ba0ec8c0bd # 0.0.7
         with:
           release-versions-file: ${{ steps.train.outputs.release-versions-file }}
           train-file: ${{ steps.train.outputs.train-file }}
@@ -188,7 +188,7 @@ jobs:
       - name: Make sure that there are issues
         id: issues
         if: steps.train.outputs.found == 'true'
-        uses: spring-io/spring-security-actions/ensure-dependency-issues@2a3eb91b5fb2ad8c5fe3af780292cc7fd4459d99 # 0.0.6
+        uses: spring-io/spring-security-actions/ensure-dependency-issues@858d5da859066dedb6525ac0dd0824ba0ec8c0bd # 0.0.7
         with:
           versions: ${{ steps.versions.outputs.versions }}
           repository: ${{ steps.repositories.outputs.oss-repository }}
@@ -197,11 +197,11 @@ jobs:
           token: ${{ secrets.RELEASE_AUTOMATION_TOKEN }}
       - name: Update the dependencies of the release
         if: steps.train.outputs.found == 'true'
-        uses: spring-io/spring-security-actions/update-versions@2a3eb91b5fb2ad8c5fe3af780292cc7fd4459d99 # 0.0.6
+        uses: spring-io/spring-security-actions/update-versions@858d5da859066dedb6525ac0dd0824ba0ec8c0bd # 0.0.7
         with:
           versions: ${{ steps.issues.outputs.updates }}
       - name: Set the version of the release
-        uses: spring-io/spring-security-actions/set-version@2a3eb91b5fb2ad8c5fe3af780292cc7fd4459d99 # 0.0.6
+        uses: spring-io/spring-security-actions/set-version@858d5da859066dedb6525ac0dd0824ba0ec8c0bd # 0.0.7
         with:
           version: ${{ steps.release.outputs.release-version }}
           message: Release ${{ steps.release.outputs.release-version }}
@@ -209,7 +209,7 @@ jobs:
       # Both at once, or none: so a failure never leaves one of them built and not the other.
       # It is forced, because the branches are built again from the pushed commit every time.
       - name: Push the branches
-        uses: spring-io/spring-security-actions/push-branches@2a3eb91b5fb2ad8c5fe3af780292cc7fd4459d99 # 0.0.6
+        uses: spring-io/spring-security-actions/push-branches@858d5da859066dedb6525ac0dd0824ba0ec8c0bd # 0.0.7
         with:
           branches: |
             release/${{ steps.release.outputs.release-version }}=${{ steps.release.outputs.release-version }}

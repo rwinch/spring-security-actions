@@ -1,27 +1,27 @@
 # plan-release-branches
 
-Decides what the push of a disclosure branch builds. It is the first thing that the release workflow does, and it only reads its two inputs: nothing is checked out or changed.
+Decides what the push of an embargoed branch builds. It is the first thing that the release workflow does, and it only reads its two inputs: nothing is checked out or changed.
 
 ## What it decides
 
-|  | A frozen disclosure, `disclosure/frozen/7.0.x` (`7.0.1-SNAPSHOT`) | An active disclosure, `disclosure/active/7.0.x` (`7.0.1-SNAPSHOT`) |
+|  | A frozen embargoed branch, `embargoed/frozen/7.0.x` (`7.0.1-SNAPSHOT`) | An active embargoed branch, `embargoed/active/7.0.x` (`7.0.1-SNAPSHOT`) |
 |---|---|---|
 | `kind` | `frozen` | `active` |
 | `base-version`, which the release version is worked out from | `7.0.1-SNAPSHOT` | `7.0.1.1-SNAPSHOT`, the hotfix |
 | `hotfix` | `false` | `true` |
 | `hotfix-of`, the release that the hotfix fixes | empty | `release/7.0.1` |
-| `snapshot-branch` | `disclosure/7.0.1-INTERNAL-SNAPSHOT` | `disclosure/7.0.1.1-SNAPSHOT` |
+| `snapshot-branch` | `embargoed/7.0.1-INTERNAL-SNAPSHOT` | `embargoed/7.0.1.1-SNAPSHOT` |
 | `snapshot-version` | `7.0.1-INTERNAL-SNAPSHOT` | `7.0.1.1-SNAPSHOT` |
 
 - A snapshot never carries a milestone or a release candidate: the snapshot of `7.1.0-SNAPSHOT` is `7.1.0-INTERNAL-SNAPSHOT`, and not the version of the release that is built (`7.1.0-RC1`).
-- A hotfix never has an internal snapshot, and a frozen disclosure has no hotfix.
-- A version that ends with `.0` on an active disclosure is not a patch release, so it has no hotfix: `release` is `false`, and there is nothing to build.
+- A hotfix never has an internal snapshot, and a frozen embargoed branch has no hotfix.
+- A version that ends with `.0` on an active embargoed branch is not a patch release, so it has no hotfix: `release` is `false`, and there is nothing to build.
 
 ## Inputs
 
 | Input | Required | Description |
 |---|---|---|
-| `ref-name` | yes | The branch that was pushed: `disclosure/frozen/<generation>` or `disclosure/active/<generation>`. |
+| `ref-name` | yes | The branch that was pushed: `embargoed/frozen/<generation>` or `embargoed/active/<generation>`. |
 | `version` | yes | The version of `gradle.properties` on it, `<major>.<minor>.<patch>-SNAPSHOT`. |
 
 ## Outputs
@@ -30,10 +30,10 @@ Decides what the push of a disclosure branch builds. It is the first thing that 
 
 ## Fails when
 
-- the branch is not a disclosure branch
+- the branch is not an embargoed branch
 - the version is not `<major>.<minor>.<patch>-SNAPSHOT` (`7.0.1`, `7.1.0-M1-SNAPSHOT`)
-- a frozen disclosure has a hotfix version (`7.0.1.1-SNAPSHOT`): only an active disclosure has a hotfix
-- an active disclosure has a hotfix version already: it has the version of the release that it fixes
+- a frozen embargoed branch has a hotfix version (`7.0.1.1-SNAPSHOT`): only an active embargoed branch has a hotfix
+- an active embargoed branch has a hotfix version already: it has the version of the release that it fixes
 
 ## Secrets and permissions
 
@@ -59,7 +59,7 @@ None. It reads two inputs.
 cd plan-release-branches
 npm ci
 export GITHUB_OUTPUT=$(mktemp)
-env 'INPUT_REF-NAME=disclosure/active/7.0.x' 'INPUT_VERSION=7.0.1-SNAPSHOT' \
+env 'INPUT_REF-NAME=embargoed/active/7.0.x' 'INPUT_VERSION=7.0.1-SNAPSHOT' \
     node src/index.js
 cat "$GITHUB_OUTPUT"
 ```

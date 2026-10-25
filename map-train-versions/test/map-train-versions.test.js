@@ -48,7 +48,7 @@ describe("the four ways of the release workflow, with the practice train", () =>
     });
   });
 
-  it("the snapshot branch of a frozen disclosure: an internal snapshot of each", () => {
+  it("the snapshot branch of a frozen embargoed branch: an internal snapshot of each", () => {
     expect(map({ suffix: "-INTERNAL-SNAPSHOT" }).changes).toEqual({
       micrometer: "1.16.8-INTERNAL-SNAPSHOT",
       reactor: "2025.0.8-INTERNAL-SNAPSHOT", // joined, but not ready: that is enough

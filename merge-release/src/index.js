@@ -6,18 +6,18 @@ const lines = (text) => (text ? text.split("\n") : []);
 
 /**
  * Merges the release that a hotfix fixes into the branch that is checked out, so that the
- * hotfix is based on the release: the release plus the fixes of the active disclosure.
+ * hotfix is based on the release: the release plus the fixes of the active embargoed branch.
  *
- * The merge is a merge commit (Merge release/7.0.1 into disclosure/7.0.1.1-SNAPSHOT), signed
+ * The merge is a merge commit (Merge release/7.0.1 into embargoed/7.0.1.1-SNAPSHOT), signed
  * off with the identity that git is set up with, even if the release could be fast forwarded
  * to. It is made from the branch of the remote (origin/release/7.0.1), as it was when the
  * repository was checked out.
  *
- * - If the release does not exist (the frozen disclosure has not been pushed yet), it is a
- *   warning and nothing is merged: the hotfix is built from the active disclosure alone.
+ * - If the release does not exist (the frozen embargoed branch has not been pushed yet), it is a
+ *   warning and nothing is merged: the hotfix is built from the active embargoed branch alone.
  * - If the release is in the branch already, there is nothing to merge.
  * - If both sides changed the same lines, the side of the branch that is checked out wins
- *   (-X ours): the active disclosure is the one that has the fixes. The files that both
+ *   (-X ours): the active embargoed branch is the one that has the fixes. The files that both
  *   sides changed are said in a notice, so that is not silent. A conflict that cannot be
  *   resolved that way (a file that one side deleted and the other changed, a binary file)
  *   fails, and the merge is undone.
@@ -37,7 +37,7 @@ export function mergeRelease({ directory, release }) {
       .code !== 0
   ) {
     core.warning(
-      `${release} does not exist, so the hotfix is built from the active disclosure alone. Push the frozen disclosure to build the release, and the hotfix is built on it the next time that the active disclosure is pushed.`,
+      `${release} does not exist, so the hotfix is built from the active embargoed branch alone. Push the frozen embargoed branch to build the release, and the hotfix is built on it the next time that the active embargoed branch is pushed.`,
       { title: "No release to build the hotfix on" },
     );
     return "false";
@@ -74,7 +74,7 @@ export function mergeRelease({ directory, release }) {
   const both = [...changed("HEAD")].filter((file) => theirs.has(file)).sort();
   if (both.length > 0) {
     core.notice(
-      `The active disclosure and ${release} both changed: ${both.join(" ")}. Where they changed the same lines, the active disclosure is kept.`,
+      `The active embargoed branch and ${release} both changed: ${both.join(" ")}. Where they changed the same lines, the active embargoed branch is kept.`,
       { title: "Changed on both sides" },
     );
   }
@@ -105,7 +105,7 @@ export function mergeRelease({ directory, release }) {
       .join(" ");
     gitTry(directory, "merge", "--abort");
     throw new Error(
-      `${release} could not be merged into ${current}: ${conflicts} cannot be merged by taking the side of the active disclosure. Merge ${release} into the active disclosure by hand (the merge forward), push it, and the hotfix is built again.`,
+      `${release} could not be merged into ${current}: ${conflicts} cannot be merged by taking the side of the active embargoed branch. Merge ${release} into the active embargoed branch by hand (the merge forward), push it, and the hotfix is built again.`,
     );
   }
   core.info(
