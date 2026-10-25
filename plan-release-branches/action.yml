@@ -20,6 +20,8 @@ outputs:
     description: "true for an active embargoed branch: a hotfix is built, and hotfix versions of the dependencies are preferred"
   hotfix-of:
     description: "For a hotfix, the release branch that it fixes and is built on (release/7.0.1). Empty for a frozen embargoed branch"
+  frozen-branch:
+    description: "For an active embargoed branch, the frozen embargoed branch of the same generation (embargoed/frozen/7.0.x for embargoed/active/7.0.x): a hotfix is only built if the active one has changes that it lacks. Empty for a frozen embargoed branch"
   snapshot-branch:
     description: "The snapshot branch: embargoed/7.0.1-INTERNAL-SNAPSHOT for a frozen embargoed branch, embargoed/7.0.1.1-SNAPSHOT for a hotfix"
   snapshot-version:
