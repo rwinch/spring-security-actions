@@ -77,8 +77,9 @@ function byDueDateThenRelease(candidate) {
  *   due date of those is next.
  *
  * The due date is a date in UTC (a milestone is due at noon UTC, so it is the same
- * day in every time zone). It fails if the milestone does not exist, and if it has no
- * due date, unless requireDueDate is false.
+ * day in every time zone). It fails if the milestone has no due date, unless
+ * requireDueDate is false. If the milestone does not exist, it does not fail: it
+ * returns { found: false, message }, and the caller decides what to do.
  */
 export async function run(
   { snapshotVersion, milestoneRepository, requireDueDate = true },
@@ -93,16 +94,20 @@ export async function run(
       .filter((m) => pattern.test(m.title))
       .sort(byDueDateThenRelease(candidate));
     if (matching.length === 0) {
-      throw new Error(
-        `${milestoneRepository} has no open milestone for ${candidate}: expected ${candidate}, ${candidate}-M<n> or ${candidate}-RC<n>`,
-      );
+      return {
+        found: false,
+        message: `${milestoneRepository} has no open milestone for ${candidate}: expected ${candidate}, ${candidate}-M<n> or ${candidate}-RC<n>, so nothing is built`,
+      };
     }
     milestone = matching[0];
   } else {
     const all = await listMilestones(octokit, milestoneRepository, "all");
     milestone = all.find((m) => m.title === candidate);
     if (!milestone) {
-      throw new Error(`${milestoneRepository} has no milestone ${candidate}`);
+      return {
+        found: false,
+        message: `${milestoneRepository} has no milestone ${candidate}, so nothing is built`,
+      };
     }
   }
 
@@ -114,7 +119,7 @@ export async function run(
       `The milestone ${milestone.title} of ${milestoneRepository} has no due date (set require-due-date to false to allow that)`,
     );
   }
-  return { releaseVersion: milestone.title, dueDate };
+  return { found: true, releaseVersion: milestone.title, dueDate };
 }
 
 export async function main() {
@@ -128,12 +133,29 @@ export async function main() {
       core.getInput("require-due-date"),
       true,
     ),
+    failIfMissing: parseBoolean(
+      "fail-if-missing",
+      core.getInput("fail-if-missing"),
+      true,
+    ),
   };
   const octokit = createOctokit({ token: core.getInput("milestone-token") });
-  const { releaseVersion, dueDate } = await run(inputs, { octokit });
+  const result = await run(inputs, { octokit });
+  if (!result.found) {
+    if (inputs.failIfMissing) {
+      throw new Error(result.message);
+    }
+    core.notice(result.message, { title: "No milestone" });
+    core.setOutput("found", "false");
+    core.setOutput("release-version", "");
+    core.setOutput("due-date", "");
+    return;
+  }
+  const { releaseVersion, dueDate } = result;
   core.info(
     `${inputs.snapshotVersion} is released as ${releaseVersion}, due ${dueDate || "on no date"}`,
   );
+  core.setOutput("found", "true");
   core.setOutput("release-version", releaseVersion);
   core.setOutput("due-date", dueDate);
 }
