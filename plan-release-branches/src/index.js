@@ -20,6 +20,10 @@ const HOTFIX = /^\d+\.\d+\.\d+\.\d+$/;
  *                     of the dependencies are preferred
  *   hotfixOf          for a hotfix, the release branch that it fixes and is built on:
  *                     release/7.0.1 for 7.0.1-SNAPSHOT. Empty for a frozen embargoed branch
+ *   frozenBranch      for an active embargoed branch, the frozen embargoed branch of the same
+ *                     generation, which a hotfix is only built for if the active one differs
+ *                     from it: embargoed/frozen/7.0.x for embargoed/active/7.0.x. Empty for a
+ *                     frozen embargoed branch
  *   snapshotBranch    the branch of the snapshot that the release branch is built on (active)
  *                     or that is thrown away (frozen): embargoed/7.0.1-INTERNAL-SNAPSHOT,
  *                     embargoed/7.0.1.1-SNAPSHOT
@@ -59,6 +63,7 @@ export function plan({ refName, version }) {
       baseVersion: version,
       hotfix: false,
       hotfixOf: "",
+      frozenBranch: "",
       snapshotBranch: `embargoed/${plain}-INTERNAL-SNAPSHOT`,
       snapshotVersion: `${plain}-INTERNAL-SNAPSHOT`,
     };
@@ -79,6 +84,7 @@ export function plan({ refName, version }) {
     baseVersion: `${hotfix}-SNAPSHOT`,
     hotfix: true,
     hotfixOf: `release/${plain}`,
+    frozenBranch: refName.replace(/^embargoed\/active\//, "embargoed/frozen/"),
     snapshotBranch: `embargoed/${hotfix}-SNAPSHOT`,
     snapshotVersion: `${hotfix}-SNAPSHOT`,
   };
@@ -90,6 +96,7 @@ const OUTPUTS = {
   baseVersion: "base-version",
   hotfix: "hotfix",
   hotfixOf: "hotfix-of",
+  frozenBranch: "frozen-branch",
   snapshotBranch: "snapshot-branch",
   snapshotVersion: "snapshot-version",
 };

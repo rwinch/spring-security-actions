@@ -46,7 +46,7 @@ If there is more than one issue with the title, which is not meant to be, an ope
 
 ## Secrets and permissions
 
-The action creates issues, so it needs a token that can write them. The issues are in the **OSS repository**, which is another repository than the one that runs the release workflow, so `GITHUB_TOKEN` of the workflow cannot. A token that is stored as a secret is needed, with write access to the **issues** of the repository, and nothing else:
+The action creates issues, so it needs a token that can write them. The release workflow gives the repository of the issues: the **OSS repository** for a release, which is another repository than the one that runs the release workflow, and the repository that runs it (the commercial one) for a hotfix, with the milestone of the hotfix. The `GITHUB_TOKEN` of the release workflow cannot write the issues of either (its permission is `contents: read`). A token that is stored as a secret is needed, with write access to the **issues** of the repository, and nothing else:
 
 - a fine-grained personal access token, with that repository as its only repository, and **Issues: Read and write**
 - a classic personal access token with the `repo` scope (`public_repo` is enough for a public repository). It is broader.

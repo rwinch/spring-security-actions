@@ -12,6 +12,7 @@ describe("plan", () => {
       baseVersion: "7.0.1-SNAPSHOT",
       hotfix: false,
       hotfixOf: "",
+      frozenBranch: "",
       snapshotBranch: "embargoed/7.0.1-INTERNAL-SNAPSHOT",
       snapshotVersion: "7.0.1-INTERNAL-SNAPSHOT",
     });
@@ -36,6 +37,7 @@ describe("plan", () => {
       baseVersion: "7.0.1.1-SNAPSHOT",
       hotfix: true,
       hotfixOf: "release/7.0.1",
+      frozenBranch: "embargoed/frozen/7.0.x",
       snapshotBranch: "embargoed/7.0.1.1-SNAPSHOT",
       snapshotVersion: "7.0.1.1-SNAPSHOT",
     });
@@ -63,6 +65,19 @@ describe("plan", () => {
         version: "7.0.3-SNAPSHOT",
       }).hotfixOf,
     ).toBe("release/7.0.3");
+  });
+
+  it("names the frozen embargoed branch of the same generation for an active one, whatever the generation is called", () => {
+    expect(
+      plan({ refName: "embargoed/active/main", version: "7.1.1-SNAPSHOT" })
+        .frozenBranch,
+    ).toBe("embargoed/frozen/main");
+    expect(
+      plan({
+        refName: "embargoed/active/try-hotfix",
+        version: "7.0.3-SNAPSHOT",
+      }).frozenBranch,
+    ).toBe("embargoed/frozen/try-hotfix");
   });
 
   it.each([
@@ -123,6 +138,7 @@ describe.each([["src/index.js"], ["dist/index.js"]])(
         "base-version": "7.0.1.1-SNAPSHOT",
         hotfix: "true",
         "hotfix-of": "release/7.0.1",
+        "frozen-branch": "embargoed/frozen/7.0.x",
         "snapshot-branch": "embargoed/7.0.1.1-SNAPSHOT",
         "snapshot-version": "7.0.1.1-SNAPSHOT",
       });
@@ -141,6 +157,7 @@ describe.each([["src/index.js"], ["dist/index.js"]])(
         kind: "frozen",
         hotfix: "false",
         "hotfix-of": "",
+        "frozen-branch": "",
         "snapshot-branch": "embargoed/7.1.0-INTERNAL-SNAPSHOT",
       });
     });
