@@ -25,7 +25,7 @@ With the practice train `2026.11.19` and the versions of the template (`7.0.9` f
 |---|---|---|---|
 | the release branch (no options) | `7.0.10` | `1.16.8` | `2025.1.8` |
 | the release branch of a hotfix (`prefer-hotfix`) | `7.0.10.1` | `1.16.8` (there is no hotfix) | `2025.1.8.1` |
-| the snapshot branch of a frozen disclosure (`suffix: -INTERNAL-SNAPSHOT`) | `7.0.10-INTERNAL-SNAPSHOT` | `1.16.8-INTERNAL-SNAPSHOT` | `2025.1.8-INTERNAL-SNAPSHOT` |
+| the snapshot branch of a frozen embargoed branch (`suffix: -INTERNAL-SNAPSHOT`) | `7.0.10-INTERNAL-SNAPSHOT` | `1.16.8-INTERNAL-SNAPSHOT` | `2025.1.8-INTERNAL-SNAPSHOT` |
 | the snapshot branch of a hotfix (`prefer-hotfix`, `hotfix-suffix: -SNAPSHOT`, `suffix: -INTERNAL-SNAPSHOT`) | `7.0.10.1-SNAPSHOT` | `1.16.8-INTERNAL-SNAPSHOT` (no hotfix, so the plain version) | `2025.1.8.1-SNAPSHOT` |
 
 ## Inputs

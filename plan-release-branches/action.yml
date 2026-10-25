@@ -1,9 +1,9 @@
 name: "plan-release-branches"
-description: "Decides what the push of a disclosure branch builds: the release, the snapshot branch, and for an active disclosure the hotfix"
+description: "Decides what the push of an embargoed branch builds: the release, the snapshot branch, and for an active embargoed branch the hotfix"
 
 inputs:
   ref-name:
-    description: "The branch that was pushed: disclosure/frozen/<generation> or disclosure/active/<generation>"
+    description: "The branch that was pushed: embargoed/frozen/<generation> or embargoed/active/<generation>"
     required: true
   version:
     description: "The version of gradle.properties on it: <version>-SNAPSHOT"
@@ -11,17 +11,17 @@ inputs:
 
 outputs:
   release:
-    description: "false if there is nothing to build (an active disclosure whose version ends with .0 has no hotfix), else true. The other outputs are only there if it is true, and kind is always there"
+    description: "false if there is nothing to build (an active embargoed branch whose version ends with .0 has no hotfix), else true. The other outputs are only there if it is true, and kind is always there"
   kind:
     description: "frozen or active"
   base-version:
-    description: "The snapshot version that the release version is worked out from: the version of a frozen disclosure (7.0.1-SNAPSHOT), or the hotfix version of an active one (7.0.1.1-SNAPSHOT)"
+    description: "The snapshot version that the release version is worked out from: the version of a frozen embargoed branch (7.0.1-SNAPSHOT), or the hotfix version of an active one (7.0.1.1-SNAPSHOT)"
   hotfix:
-    description: "true for an active disclosure: a hotfix is built, and hotfix versions of the dependencies are preferred"
+    description: "true for an active embargoed branch: a hotfix is built, and hotfix versions of the dependencies are preferred"
   hotfix-of:
-    description: "For a hotfix, the release branch that it fixes and is built on (release/7.0.1). Empty for a frozen disclosure"
+    description: "For a hotfix, the release branch that it fixes and is built on (release/7.0.1). Empty for a frozen embargoed branch"
   snapshot-branch:
-    description: "The snapshot branch: disclosure/7.0.1-INTERNAL-SNAPSHOT for a frozen disclosure, disclosure/7.0.1.1-SNAPSHOT for a hotfix"
+    description: "The snapshot branch: embargoed/7.0.1-INTERNAL-SNAPSHOT for a frozen embargoed branch, embargoed/7.0.1.1-SNAPSHOT for a hotfix"
   snapshot-version:
     description: "The version of the snapshot branch: 7.0.1-INTERNAL-SNAPSHOT, or 7.0.1.1-SNAPSHOT. A snapshot never carries a milestone or a release candidate"
 

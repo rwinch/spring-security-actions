@@ -1,15 +1,15 @@
 # merge-release
 
-Merges the release that a hotfix fixes (`release/7.0.1`) into the branch that is checked out, so that the hotfix `7.0.1.1` is the release plus the fixes of the active disclosure. the release workflow runs it first on the snapshot branch of a hotfix.
+Merges the release that a hotfix fixes (`release/7.0.1`) into the branch that is checked out, so that the hotfix `7.0.1.1` is the release plus the fixes of the active embargoed branch. the release workflow runs it first on the snapshot branch of a hotfix.
 
 ## What it does
 
-- The merge is a merge commit, `Merge release/7.0.1 into disclosure/7.0.1.1-SNAPSHOT`, signed off with the identity that git is set up with (`git-identity` sets it), even if the release could be fast forwarded to. It is not signed with a key.
+- The merge is a merge commit, `Merge release/7.0.1 into embargoed/7.0.1.1-SNAPSHOT`, signed off with the identity that git is set up with (`git-identity` sets it), even if the release could be fast forwarded to. It is not signed with a key.
 - It merges the branch of the remote, `origin/release/7.0.1`, as it was when the repository was checked out. A branch of that name in the clone is not used.
-- **No release yet:** the frozen disclosure has not been pushed, so `release/7.0.1` does not exist. That is a warning (`No release to build the hotfix on`), nothing is merged, and `merged` is `false`. The hotfix is built from the active disclosure alone.
+- **No release yet:** the frozen embargoed branch has not been pushed, so `release/7.0.1` does not exist. That is a warning (`No release to build the hotfix on`), nothing is merged, and `merged` is `false`. The hotfix is built from the active embargoed branch alone.
 - **Already in the branch:** nothing is merged, `merged` is `up-to-date`.
-- **Both sides changed the same lines:** the checked out branch (the active disclosure, which has the fixes) wins, as with `git merge -X ours`. The files that both sides changed are said in a notice, `Changed on both sides`, so that is not silent.
-- **A conflict that cannot be settled that way** (a file that one side deleted and the other changed, a binary file) fails. The merge is undone, and the error lists the files and says to merge the release into the active disclosure by hand (the merge forward), push, and the hotfix is built again.
+- **Both sides changed the same lines:** the checked out branch (the active embargoed branch, which has the fixes) wins, as with `git merge -X ours`. The files that both sides changed are said in a notice, `Changed on both sides`, so that is not silent.
+- **A conflict that cannot be settled that way** (a file that one side deleted and the other changed, a binary file) fails. The merge is undone, and the error lists the files and says to merge the release into the active embargoed branch by hand (the merge forward), push, and the hotfix is built again.
 
 ## Inputs
 

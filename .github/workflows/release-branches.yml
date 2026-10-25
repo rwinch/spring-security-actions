@@ -1,17 +1,17 @@
 name: release-branches
 
-# Every push to a disclosure branch builds the branches of its release. They are built
+# Every push to an embargoed branch builds the branches of its release. They are built
 # again from the pushed commit every time, and nobody commits to them:
 #
-#   disclosure/frozen/<generation>   the release of the version of the branch
+#   embargoed/frozen/<generation>   the release of the version of the branch
 #     release/<release version>               the release: the dependencies the release
 #                                             train asks for, and the version of the release
-#     disclosure/<version>-INTERNAL-SNAPSHOT  a snapshot of the version, with internal
+#     embargoed/<version>-INTERNAL-SNAPSHOT  a snapshot of the version, with internal
 #                                             snapshots of the dependencies. It is thrown away
 #
-#   disclosure/active/<generation>   the hotfix of the version of the branch: the release
-#                                    of that version, and the fixes of the active disclosure
-#     disclosure/<hotfix>-SNAPSHOT            the release merged in (release/<version>, if
+#   embargoed/active/<generation>   the hotfix of the version of the branch: the release
+#                                    of that version, and the fixes of the active embargoed branch
+#     embargoed/<hotfix>-SNAPSHOT            the release merged in (release/<version>, if
 #                                             it exists), the commercial license and headers,
 #                                             the hotfix version, and snapshots of the
 #                                             dependencies that have a hotfix
@@ -23,7 +23,7 @@ name: release-branches
 # train is not changed: the run fails, and says what to do.
 #
 # This is a reusable workflow: a project calls it from a workflow that is triggered by the
-# push of the disclosure branches (see docs/release-branches.md for the caller, the secret
+# push of the embargoed branches (see docs/release-branches.md for the caller, the secret
 # and the variable it needs). The actions are the ones of this repository, each in a
 # directory of its own with a README.
 
@@ -91,7 +91,7 @@ jobs:
           fetch-depth: 0
       - name: Set the git identity
         uses: spring-io/spring-security-actions/git-identity@2a3eb91b5fb2ad8c5fe3af780292cc7fd4459d99 # 0.0.6
-      # The disclosure branches only exist in the commercial repository, spring-security-commercial.
+      # The embargoed branches only exist in the commercial repository, spring-security-commercial.
       # The project of the release train, and the OSS repository with the milestones and the
       # issues, are named after it.
       - name: Name the repositories
@@ -131,7 +131,7 @@ jobs:
         with:
           branch: ${{ env.SNAPSHOT_BRANCH }}
           from: ${{ github.sha }}
-      # A hotfix is the release plus the fixes of the active disclosure, so it starts with the
+      # A hotfix is the release plus the fixes of the active embargoed branch, so it starts with the
       # release merged in. The versions of the dependencies of the release come with it:
       # a dependency that has no hotfix is left at the version that the release has.
       - name: Merge the release into the hotfix

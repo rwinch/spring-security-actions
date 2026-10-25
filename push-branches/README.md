@@ -29,7 +29,7 @@ It needs no secret of its own. It pushes with the credentials that `actions/chec
   with:
     branches: |
       release/7.0.1=7.0.1
-      disclosure/7.0.1-INTERNAL-SNAPSHOT=7.0.1-INTERNAL-SNAPSHOT
+      embargoed/7.0.1-INTERNAL-SNAPSHOT=7.0.1-INTERNAL-SNAPSHOT
 ```
 
 ## Running it locally

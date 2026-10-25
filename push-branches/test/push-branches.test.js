@@ -19,7 +19,7 @@ function world() {
     git(clone, "commit", "-q", "--allow-empty", "-m", message);
   git(clone, "switch", "-q", "-c", "release/1.0", main);
   commit("one");
-  git(clone, "switch", "-q", "-c", "disclosure/1.0-SNAPSHOT", main);
+  git(clone, "switch", "-q", "-c", "embargoed/1.0-SNAPSHOT", main);
   commit("one");
   commit("two");
   return { clone, origin, main };
@@ -33,16 +33,16 @@ const remote = (origin, branch) => {
 };
 const branches = [
   { branch: "release/1.0", version: "1.0" },
-  { branch: "disclosure/1.0-SNAPSHOT", version: "1.0-SNAPSHOT" },
+  { branch: "embargoed/1.0-SNAPSHOT", version: "1.0-SNAPSHOT" },
 ];
 
 describe("parseBranches", () => {
   it("is a branch and a version for every line", () => {
     expect(
-      parseBranches("release/1.0=1.0\n\n  disclosure/x=1.0-SNAPSHOT  \n"),
+      parseBranches("release/1.0=1.0\n\n  embargoed/x=1.0-SNAPSHOT  \n"),
     ).toEqual([
       { branch: "release/1.0", version: "1.0" },
-      { branch: "disclosure/x", version: "1.0-SNAPSHOT" },
+      { branch: "embargoed/x", version: "1.0-SNAPSHOT" },
     ]);
   });
 
@@ -68,7 +68,7 @@ describe("pushBranches", () => {
     expect(pushed).toEqual([
       { branch: "release/1.0", version: "1.0", commits: 1 },
       {
-        branch: "disclosure/1.0-SNAPSHOT",
+        branch: "embargoed/1.0-SNAPSHOT",
         version: "1.0-SNAPSHOT",
         commits: 2,
       },
@@ -76,8 +76,8 @@ describe("pushBranches", () => {
     expect(remote(origin, "release/1.0")).toBe(
       git(clone, "rev-parse", "release/1.0"),
     );
-    expect(remote(origin, "disclosure/1.0-SNAPSHOT")).toBe(
-      git(clone, "rev-parse", "disclosure/1.0-SNAPSHOT"),
+    expect(remote(origin, "embargoed/1.0-SNAPSHOT")).toBe(
+      git(clone, "rev-parse", "embargoed/1.0-SNAPSHOT"),
     );
   });
 
@@ -98,14 +98,14 @@ describe("pushBranches", () => {
     const hook = path.join(origin, "hooks", "update");
     fs.writeFileSync(
       hook,
-      '#!/bin/sh\n[ "$1" = refs/heads/disclosure/1.0-SNAPSHOT ] && exit 1\nexit 0\n',
+      '#!/bin/sh\n[ "$1" = refs/heads/embargoed/1.0-SNAPSHOT ] && exit 1\nexit 0\n',
     );
     fs.chmodSync(hook, 0o755);
     expect(() =>
       pushBranches({ directory: clone, branches, base: main }),
     ).toThrow("git push");
     expect(remote(origin, "release/1.0")).toBeUndefined();
-    expect(remote(origin, "disclosure/1.0-SNAPSHOT")).toBeUndefined();
+    expect(remote(origin, "embargoed/1.0-SNAPSHOT")).toBeUndefined();
   });
 
   it("fails for a branch that does not exist, and pushes nothing", () => {
@@ -133,10 +133,10 @@ describe.each([["src/index.js"], ["dist/index.js"]])(
       const result = await runAction(
         entry,
         {
-          branches: "release/1.0=1.0\ndisclosure/1.0-SNAPSHOT=1.0-SNAPSHOT",
+          branches: "release/1.0=1.0\nembargoed/1.0-SNAPSHOT=1.0-SNAPSHOT",
           base: main,
           path: clone,
-          title: "disclosure/frozen/1.0.x",
+          title: "embargoed/frozen/1.0.x",
         },
         { GITHUB_STEP_SUMMARY: summary },
       );
@@ -144,12 +144,12 @@ describe.each([["src/index.js"], ["dist/index.js"]])(
       expect(remote(origin, "release/1.0")).toBeDefined();
       expect(fs.readFileSync(summary, "utf8")).toBe(
         [
-          "### disclosure/frozen/1.0.x",
+          "### embargoed/frozen/1.0.x",
           "",
           "| Branch | Version | Commits on the pushed commit |",
           "| --- | --- | --- |",
           "| `release/1.0` | 1.0 | 1 |",
-          "| `disclosure/1.0-SNAPSHOT` | 1.0-SNAPSHOT | 2 |",
+          "| `embargoed/1.0-SNAPSHOT` | 1.0-SNAPSHOT | 2 |",
           "",
         ].join("\n"),
       );
@@ -160,10 +160,10 @@ describe.each([["src/index.js"], ["dist/index.js"]])(
       const result = await runAction(
         entry,
         { branches: "release/1.0=1.0", path: clone },
-        { GITHUB_SHA: main, GITHUB_REF_NAME: "disclosure/frozen/x" },
+        { GITHUB_SHA: main, GITHUB_REF_NAME: "embargoed/frozen/x" },
       );
       expect(result.code).toBe(0);
-      expect(result.stdout).toContain("### disclosure/frozen/x");
+      expect(result.stdout).toContain("### embargoed/frozen/x");
     });
 
     it("fails with an error that GitHub shows, and pushes nothing", async () => {

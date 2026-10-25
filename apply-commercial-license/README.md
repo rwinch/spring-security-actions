@@ -1,6 +1,6 @@
 # apply-commercial-license
 
-Changes a git repository to the commercial license: the Broadcom license header in place of the Apache one in the source files, and the commercial license in place of the license of the project. Only a **hotfix** is commercial, so this is only done for the branch of a hotfix. A release that comes from a frozen disclosure is the OSS release, and keeps the Apache license.
+Changes a git repository to the commercial license: the Broadcom license header in place of the Apache one in the source files, and the commercial license in place of the license of the project. Only a **hotfix** is commercial, so this is only done for the branch of a hotfix. A release that comes from a frozen embargoed branch is the OSS release, and keeps the Apache license.
 
 
 ## What it does
