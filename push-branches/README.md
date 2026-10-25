@@ -6,7 +6,7 @@ Pushes the branches that the workflow built, all at once or none, so that a fail
 
 - It is forced, because the branches are built again from the pushed commit every time.
 - It needs the token of the checkout to be the one that triggers workflows (`RELEASE_AUTOMATION_TOKEN`): the pushes of `GITHUB_TOKEN` do not run the workflows of the new branches.
-- The summary of the step has a table of the branches, their versions, and how many commits each has on the pushed commit.
+- The summary of the step has a table of the branches, their versions, and how many commits each has on the pushed commit. Each branch links to its page on GitHub, built from `GITHUB_SERVER_URL` (`https://github.com` if it is not set) and `GITHUB_REPOSITORY`; without `GITHUB_REPOSITORY` the branch is plain text.
 
 ## Inputs
 

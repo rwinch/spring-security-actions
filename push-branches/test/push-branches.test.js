@@ -155,6 +155,88 @@ describe.each([["src/index.js"], ["dist/index.js"]])(
       );
     });
 
+    it("links the branches to GitHub when the repository is known", async () => {
+      const { clone, main } = world();
+      const summary = path.join(
+        fs.mkdtempSync(path.join(os.tmpdir(), "summary-")),
+        "summary.md",
+      );
+      const result = await runAction(
+        entry,
+        {
+          branches: "release/1.0=1.0\nembargoed/1.0-SNAPSHOT=1.0-SNAPSHOT",
+          base: main,
+          path: clone,
+          title: "embargoed/frozen/1.0.x",
+        },
+        {
+          GITHUB_STEP_SUMMARY: summary,
+          GITHUB_SERVER_URL: "https://github.example.com/",
+          GITHUB_REPOSITORY: "acme/widgets",
+        },
+      );
+      expect(result.code).toBe(0);
+      expect(fs.readFileSync(summary, "utf8")).toBe(
+        [
+          "### embargoed/frozen/1.0.x",
+          "",
+          "| Branch | Version | Commits on the pushed commit |",
+          "| --- | --- | --- |",
+          "| [`release/1.0`](https://github.example.com/acme/widgets/tree/release/1.0) | 1.0 | 1 |",
+          "| [`embargoed/1.0-SNAPSHOT`](https://github.example.com/acme/widgets/tree/embargoed/1.0-SNAPSHOT) | 1.0-SNAPSHOT | 2 |",
+          "",
+        ].join("\n"),
+      );
+    });
+
+    it("links to github.com when the server is not set", async () => {
+      const { clone, main } = world();
+      const summary = path.join(
+        fs.mkdtempSync(path.join(os.tmpdir(), "summary-")),
+        "summary.md",
+      );
+      const result = await runAction(
+        entry,
+        {
+          branches: "release/1.0=1.0\nembargoed/1.0-SNAPSHOT=1.0-SNAPSHOT",
+          base: main,
+          path: clone,
+          title: "t",
+        },
+        { GITHUB_STEP_SUMMARY: summary, GITHUB_REPOSITORY: "acme/widgets" },
+      );
+      expect(result.code).toBe(0);
+      expect(fs.readFileSync(summary, "utf8")).toBe(
+        [
+          "### t",
+          "",
+          "| Branch | Version | Commits on the pushed commit |",
+          "| --- | --- | --- |",
+          "| [`release/1.0`](https://github.com/acme/widgets/tree/release/1.0) | 1.0 | 1 |",
+          "| [`embargoed/1.0-SNAPSHOT`](https://github.com/acme/widgets/tree/embargoed/1.0-SNAPSHOT) | 1.0-SNAPSHOT | 2 |",
+          "",
+        ].join("\n"),
+      );
+    });
+
+    it("encodes the unusual characters of a branch in its link", async () => {
+      const { clone, main } = world();
+      git(clone, "branch", "release/a#b%c", main);
+      const summary = path.join(
+        fs.mkdtempSync(path.join(os.tmpdir(), "summary-")),
+        "summary.md",
+      );
+      const result = await runAction(
+        entry,
+        { branches: "release/a#b%c=1", base: main, path: clone, title: "t" },
+        { GITHUB_STEP_SUMMARY: summary, GITHUB_REPOSITORY: "acme/widgets" },
+      );
+      expect(result.code).toBe(0);
+      expect(fs.readFileSync(summary, "utf8")).toContain(
+        "| [`release/a#b%c`](https://github.com/acme/widgets/tree/release/a%23b%25c) | 1 | 0 |",
+      );
+    });
+
     it("takes the pushed commit and the title of the workflow", async () => {
       const { clone, main } = world();
       const result = await runAction(

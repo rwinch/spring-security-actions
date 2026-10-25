@@ -48,6 +48,23 @@ export function pushBranches({ directory, remote = "origin", branches, base }) {
   return branches.map((b, i) => ({ ...b, commits: counts[i] }));
 }
 
+/**
+ * The cell of a branch in the summary: its name, linked to the branch on GitHub when the
+ * repository is known (GITHUB_REPOSITORY), and plain otherwise.
+ */
+export function branchCell(branch) {
+  const name = `\`${branch}\``;
+  const repository = process.env.GITHUB_REPOSITORY;
+  if (!repository) {
+    return name;
+  }
+  const server = (
+    process.env.GITHUB_SERVER_URL || "https://github.com"
+  ).replace(/\/+$/, "");
+  const encoded = branch.split("/").map(encodeURIComponent).join("/");
+  return `[${name}](${server}/${repository}/tree/${encoded})`;
+}
+
 export async function main() {
   const base = core.getInput("base") || process.env.GITHUB_SHA;
   if (!base) {
@@ -71,7 +88,7 @@ export async function main() {
       table(
         ["Branch", "Version", "Commits on the pushed commit"],
         pushed.map(({ branch, version, commits }) => [
-          `\`${branch}\``,
+          branchCell(branch),
           version,
           commits,
         ]),
