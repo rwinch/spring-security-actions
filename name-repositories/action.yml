@@ -12,7 +12,7 @@ outputs:
   project:
     description: "The name of the repository without `-commercial`: the project id in the release train."
   oss-repository:
-    description: "`owner/project`: the repository with the milestones and the issues."
+    description: "`owner/project`: the repository with the milestones and the issues of the releases. A hotfix has its own in the repository that runs the workflow."
 
 runs:
   using: "node24"

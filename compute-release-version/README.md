@@ -6,7 +6,7 @@ Works out the version a snapshot version is going to be released as, and when, f
 
 The candidate is the snapshot version without `-SNAPSHOT`.
 
-- If the candidate does not end with `.0`, it is the release version: `7.0.1-SNAPSHOT` is released as `7.0.1`, and the hotfix `7.0.1.1-SNAPSHOT` as `7.0.1.1`. The milestone with that exact title must exist.
+- If the candidate does not end with `.0`, it is the release version: `7.0.1-SNAPSHOT` is released as `7.0.1`, and the hotfix `7.0.1.1-SNAPSHOT` as `7.0.1.1`. The milestone with that exact title must exist in `milestone-repository`. The release workflow gives the OSS repository for a release, and the commercial repository for a hotfix, which is only released from there.
 - If it ends with `.0`, the version is not released as itself first: `7.1.0-SNAPSHOT` is released as `7.1.0-M1`, `7.1.0-M2`, ... `7.1.0-RC1`, and then as `7.1.0`. The release version is the **open** milestone with the earliest due date of those. The title must match `7.1.0` or `7.1.0-M<n>` or `7.1.0-RC<n>` exactly, so `7.1.01` and `7.1.0.1` are not matches.
 
 The due date is the date of the due date of the milestone in UTC. GitHub keeps only the date of a milestone, and answers with it as midnight UTC (`2026-11-19T00:00:00Z`). Setting it is where the time zone matters: GitHub reads what it is given in the time zone of your account, so `2026-11-19T00:00:00Z` set by a user in the Americas is stored as the 18th (this was measured). Set a milestone due at noon UTC (`2026-11-19T12:00:00Z`), which is the same day in every time zone, as the tutorial does.
@@ -43,7 +43,7 @@ The action only reads milestones.
 ** a fine-grained personal access token: **Issues: Read-only** on that repository
 ** a classic personal access token: the `repo` scope
 +
-Create it at https://github.com/settings/personal-access-tokens (fine-grained) or https://github.com/settings/tokens (classic), and store it as a secret of the repository the workflow runs in.
+Create it at https://github.com/settings/personal-access-tokens (fine-grained) or https://github.com/settings/tokens (classic), and store it as a secret of the repository the workflow runs in. The release workflow reads the milestones of a release (the public OSS repository) with `GITHUB_TOKEN`, and the milestone of a hotfix (the private commercial repository) with its secret `RELEASE_AUTOMATION_TOKEN`.
 
 ## Using it
 

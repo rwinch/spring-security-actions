@@ -37,7 +37,7 @@ on:
         default: spring-io/release-train
     secrets:
       RELEASE_AUTOMATION_TOKEN:
-        description: "The token that checks out and pushes the commercial repository (so that the push runs the workflows of the new branches), reads the release train, and creates the issues of the dependency updates in the OSS repository"
+        description: "The token that checks out and pushes the commercial repository (so that the push runs the workflows of the new branches), reads the release train, reads the milestone and creates the issues of the dependency updates of a hotfix in the commercial repository, and creates the issues of the other releases in the OSS repository"
         required: true
 
 permissions:
@@ -93,7 +93,8 @@ jobs:
         uses: spring-io/spring-security-actions/git-identity@858d5da859066dedb6525ac0dd0824ba0ec8c0bd # 0.0.7
       # The embargoed branches only exist in the commercial repository, spring-security-commercial.
       # The project of the release train, and the OSS repository with the milestones and the
-      # issues, are named after it.
+      # issues of the releases, are named after it. A hotfix is only released from the commercial
+      # repository, so its milestone and the issues of its dependency updates are in that one.
       - name: Name the repositories
         id: repositories
         uses: spring-io/spring-security-actions/name-repositories@858d5da859066dedb6525ac0dd0824ba0ec8c0bd # 0.0.7
@@ -102,8 +103,8 @@ jobs:
         uses: spring-io/spring-security-actions/compute-release-version@858d5da859066dedb6525ac0dd0824ba0ec8c0bd # 0.0.7
         with:
           snapshot-version: ${{ env.BASE_VERSION }}
-          milestone-repository: ${{ steps.repositories.outputs.oss-repository }}
-          milestone-token: ${{ secrets.GITHUB_TOKEN }}
+          milestone-repository: ${{ env.KIND == 'active' && github.repository || steps.repositories.outputs.oss-repository }}
+          milestone-token: ${{ env.KIND == 'active' && secrets.RELEASE_AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
       # The train is the one that the milestone of the release is due. If it has not been
       # created, that is said in a notice, and the branches are built without the dependencies.
       - name: Read the release train
@@ -191,7 +192,7 @@ jobs:
         uses: spring-io/spring-security-actions/ensure-dependency-issues@858d5da859066dedb6525ac0dd0824ba0ec8c0bd # 0.0.7
         with:
           versions: ${{ steps.versions.outputs.versions }}
-          repository: ${{ steps.repositories.outputs.oss-repository }}
+          repository: ${{ env.KIND == 'active' && github.repository || steps.repositories.outputs.oss-repository }}
           milestone: ${{ steps.release.outputs.release-version }}
           labels: "type: dependency-upgrade"
           token: ${{ secrets.RELEASE_AUTOMATION_TOKEN }}
