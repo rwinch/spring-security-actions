@@ -45,7 +45,7 @@ The action only reads milestones.
 ** a fine-grained personal access token: **Issues: Read-only** on that repository
 ** a classic personal access token: the `repo` scope
 +
-Create it at https://github.com/settings/personal-access-tokens (fine-grained) or https://github.com/settings/tokens (classic), and store it as a secret of the repository the workflow runs in. The release workflow reads the milestones of a release (the public OSS repository) with `GITHUB_TOKEN`, and the milestone of a hotfix (the private commercial repository) with its secret `RELEASE_AUTOMATION_TOKEN`.
+Create it at https://github.com/settings/personal-access-tokens (fine-grained) or https://github.com/settings/tokens (classic), and store it as a secret of the repository the workflow runs in. The release workflow reads the milestones of a release (the public OSS repository) with `GITHUB_TOKEN`, and the milestone of a hotfix (the private commercial repository) with its secret `RELEASE_AUTOMATION_TOKEN`, in its plan job, with `fail-if-missing` set to `false`: a version without a milestone ends the run with a notice, and builds nothing.
 
 ## Using it
 
