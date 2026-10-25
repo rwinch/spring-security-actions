@@ -1,0 +1,23 @@
+name: "compare-branches"
+description: "Says whether the checked out branch has changes that a branch of the remote origin lacks, so a hotfix is only built for an active embargoed branch that differs from the frozen one"
+
+inputs:
+  base:
+    description: "The branch to compare with, for example embargoed/frozen/7.0.x. It is read from the branch of the remote origin, as it was when the repository was checked out"
+    required: true
+  head:
+    description: "The commit to look at"
+    required: false
+    default: "HEAD"
+  path:
+    description: "The directory of the git repository"
+    required: false
+    default: "."
+
+outputs:
+  different:
+    description: "true if the head has changes that the base lacks (since their merge base), or if the base does not exist (a notice says so), else false (a notice says that there is nothing to build)"
+
+runs:
+  using: "node24"
+  main: "dist/index.js"
