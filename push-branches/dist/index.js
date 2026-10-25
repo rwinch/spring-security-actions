@@ -28624,6 +28624,7 @@ var __webpack_exports__ = {};
 
 // EXPORTS
 __nccwpck_require__.d(__webpack_exports__, {
+  pO: () => (/* binding */ branchCell),
   iW: () => (/* binding */ main),
   G: () => (/* binding */ parseBranches),
   XB: () => (/* binding */ pushBranches)
@@ -31758,6 +31759,23 @@ function pushBranches({ directory, remote = "origin", branches, base }) {
   return branches.map((b, i) => ({ ...b, commits: counts[i] }));
 }
 
+/**
+ * The cell of a branch in the summary: its name, linked to the branch on GitHub when the
+ * repository is known (GITHUB_REPOSITORY), and plain otherwise.
+ */
+function branchCell(branch) {
+  const name = `\`${branch}\``;
+  const repository = process.env.GITHUB_REPOSITORY;
+  if (!repository) {
+    return name;
+  }
+  const server = (
+    process.env.GITHUB_SERVER_URL || "https://github.com"
+  ).replace(/\/+$/, "");
+  const encoded = branch.split("/").map(encodeURIComponent).join("/");
+  return `[${name}](${server}/${repository}/tree/${encoded})`;
+}
+
 async function main() {
   const base = getInput("base") || process.env.GITHUB_SHA;
   if (!base) {
@@ -31781,7 +31799,7 @@ async function main() {
       table(
         ["Branch", "Version", "Commits on the pushed commit"],
         pushed.map(({ branch, version, commits }) => [
-          `\`${branch}\``,
+          branchCell(branch),
           version,
           commits,
         ]),
@@ -31794,7 +31812,8 @@ if (isMain(import.meta.url)) {
   execute(main);
 }
 
+var __webpack_exports__branchCell = __webpack_exports__.pO;
 var __webpack_exports__main = __webpack_exports__.iW;
 var __webpack_exports__parseBranches = __webpack_exports__.G;
 var __webpack_exports__pushBranches = __webpack_exports__.XB;
-export { __webpack_exports__main as main, __webpack_exports__parseBranches as parseBranches, __webpack_exports__pushBranches as pushBranches };
+export { __webpack_exports__branchCell as branchCell, __webpack_exports__main as main, __webpack_exports__parseBranches as parseBranches, __webpack_exports__pushBranches as pushBranches };
