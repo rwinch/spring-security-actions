@@ -46,6 +46,7 @@ describe("run", () => {
   describe("a version that does not end with .0", () => {
     it("is released as itself, on the due date of its milestone", async () => {
       expect(await release("7.0.1-SNAPSHOT")).toEqual({
+        found: true,
         releaseVersion: "7.0.1",
         dueDate: "2026-11-19",
       });
@@ -53,6 +54,7 @@ describe("run", () => {
 
     it("releases a hotfix as itself", async () => {
       expect(await release("7.0.1.1-SNAPSHOT")).toEqual({
+        found: true,
         releaseVersion: "7.0.1.1",
         dueDate: "2026-11-19",
       });
@@ -60,22 +62,25 @@ describe("run", () => {
 
     it("finds a closed milestone", async () => {
       expect(await release("6.5.5-SNAPSHOT")).toEqual({
+        found: true,
         releaseVersion: "6.5.5",
         dueDate: "2026-08-01",
       });
     });
 
-    it("fails if there is no milestone", async () => {
-      await expect(release("7.0.9-SNAPSHOT")).rejects.toThrow(
-        `${REPO} has no milestone 7.0.9`,
-      );
+    it("reports that there is no milestone", async () => {
+      expect(await release("7.0.9-SNAPSHOT")).toEqual({
+        found: false,
+        message: `${REPO} has no milestone 7.0.9, so nothing is built`,
+      });
     });
 
     it("does not match a longer version", async () => {
       // 7.0.1 must not be found as 7.0.1.1, nor 7.1.0 as 7.1.01
-      await expect(release("7.0.11-SNAPSHOT")).rejects.toThrow(
-        "has no milestone 7.0.11",
-      );
+      expect(await release("7.0.11-SNAPSHOT")).toMatchObject({
+        found: false,
+        message: expect.stringContaining("has no milestone 7.0.11"),
+      });
     });
   });
 
@@ -83,6 +88,7 @@ describe("run", () => {
     it("is released as the open milestone with the earliest due date", async () => {
       // 7.1.0-RC1 is due before 7.1.0. 7.1.0-M3 is closed, and 7.1.01 and 7.1.0.1 are other versions
       expect(await release("7.1.0-SNAPSHOT")).toEqual({
+        found: true,
         releaseVersion: "7.1.0-RC1",
         dueDate: "2026-11-19",
       });
@@ -99,6 +105,7 @@ describe("run", () => {
           { octokit: createOctokit({ baseUrl: other.url }) },
         );
         expect(result).toEqual({
+          found: true,
           releaseVersion: "7.1.0",
           dueDate: "2026-12-17",
         });
@@ -110,6 +117,7 @@ describe("run", () => {
     it("goes by the due date and not by the name", async () => {
       // 7.3.0-RC1 is due before 7.3.0-M1
       expect(await release("7.3.0-SNAPSHOT")).toEqual({
+        found: true,
         releaseVersion: "7.3.0-RC1",
         dueDate: "2027-02-01",
       });
@@ -149,16 +157,20 @@ describe("run", () => {
       },
     );
 
-    it("fails if no milestone is open", async () => {
-      await expect(release("7.7.0-SNAPSHOT")).rejects.toThrow(
-        "has no open milestone for 7.7.0",
-      );
+    it("reports that no milestone is open", async () => {
+      expect(await release("7.7.0-SNAPSHOT")).toMatchObject({
+        found: false,
+        message: expect.stringContaining(
+          `${REPO} has no open milestone for 7.7.0`,
+        ),
+      });
     });
 
     it("does not take the milestones of another version", async () => {
-      await expect(release("7.0.0-SNAPSHOT")).rejects.toThrow(
-        "has no open milestone for 7.0.0",
-      );
+      expect(await release("7.0.0-SNAPSHOT")).toMatchObject({
+        found: false,
+        message: expect.stringContaining("has no open milestone for 7.0.0"),
+      });
     });
   });
 
@@ -173,6 +185,7 @@ describe("run", () => {
       expect(
         await release("7.2.0-SNAPSHOT", { requireDueDate: false }),
       ).toEqual({
+        found: true,
         releaseVersion: "7.2.0-M1",
         dueDate: "",
       });
@@ -180,6 +193,7 @@ describe("run", () => {
 
     it("is the date in UTC, late in the day too", async () => {
       expect(await release("7.5.0-SNAPSHOT")).toEqual({
+        found: true,
         releaseVersion: "7.5.0-M1",
         dueDate: "2027-06-01",
       });
@@ -253,6 +267,7 @@ describe.each([["src/index.js"], ["dist/index.js"]])(
       });
       expect(result.code).toBe(0);
       expect(result.outputs).toEqual({
+        found: "true",
         "release-version": "7.1.0-RC1",
         "due-date": "2026-11-19",
       });
@@ -268,6 +283,7 @@ describe.each([["src/index.js"], ["dist/index.js"]])(
       );
       expect(result.code).toBe(0);
       expect(result.outputs).toEqual({
+        found: "true",
         "release-version": "7.2.0-M1",
         "due-date": "",
       });
@@ -282,6 +298,64 @@ describe.each([["src/index.js"], ["dist/index.js"]])(
         "::error::The milestone 7.2.0-M1 of tutorial/spring-merge has no due date",
       );
       expect(result.outputs).toEqual({});
+    });
+
+    it("fails if the milestone does not exist", async () => {
+      const result = await runAction(entry, inputs("7.0.9-SNAPSHOT"), {
+        GITHUB_API_URL: fake.url,
+      });
+      expect(result.code).toBe(1);
+      expect(result.stdout).toContain(
+        "::error::tutorial/spring-merge has no milestone 7.0.9",
+      );
+      expect(result.outputs).toEqual({});
+    });
+
+    it("fails if there is no open milestone for a .0 version", async () => {
+      const result = await runAction(entry, inputs("7.7.0-SNAPSHOT"), {
+        GITHUB_API_URL: fake.url,
+      });
+      expect(result.code).toBe(1);
+      expect(result.stdout).toContain(
+        "::error::tutorial/spring-merge has no open milestone for 7.7.0",
+      );
+    });
+
+    it.each([
+      ["7.0.9-SNAPSHOT", "tutorial/spring-merge has no milestone 7.0.9"],
+      [
+        "7.7.0-SNAPSHOT",
+        "tutorial/spring-merge has no open milestone for 7.7.0",
+      ],
+    ])(
+      "ends with a notice for %s if told not to fail",
+      async (version, message) => {
+        const result = await runAction(
+          entry,
+          inputs(version, { "fail-if-missing": "false" }),
+          { GITHUB_API_URL: fake.url },
+        );
+        expect(result.code).toBe(0);
+        expect(result.stdout).toContain(
+          `::notice title=No milestone::${message}`,
+        );
+        expect(result.stdout).toContain("so nothing is built");
+        expect(result.outputs).toEqual({
+          found: "false",
+          "release-version": "",
+          "due-date": "",
+        });
+      },
+    );
+
+    it("still fails without a due date if told not to fail if missing", async () => {
+      const result = await runAction(
+        entry,
+        inputs("7.2.0-SNAPSHOT", { "fail-if-missing": "false" }),
+        { GITHUB_API_URL: fake.url },
+      );
+      expect(result.code).toBe(1);
+      expect(result.stdout).toContain("::error::The milestone 7.2.0-M1");
     });
 
     it("fails if an input is wrong", async () => {
