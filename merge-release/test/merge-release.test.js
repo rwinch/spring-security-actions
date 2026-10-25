@@ -6,7 +6,7 @@ import { mergeRelease } from "../src/index.js";
 import { git } from "./support/git-repo.js";
 import { runAction } from "./support/run-action.js";
 
-// merge-release, with real git: a remote that has the frozen disclosure, the active one
+// merge-release, with real git: a remote that has the frozen embargoed branch, the active one
 // (the frozen one and a fix), and release/7.0.1 (what the workflow builds from the frozen one:
 // updates of two dependencies, and the version of the release).
 describe("merge-release", () => {
@@ -33,7 +33,7 @@ describe("merge-release", () => {
     git(base, "init", "-q", "--bare", "-b", "main", origin);
     const seed = path.join(base, "seed");
     fs.mkdirSync(seed);
-    git(seed, "init", "-q", "-b", "disclosure/frozen/7.0.x");
+    git(seed, "init", "-q", "-b", "embargoed/frozen/7.0.x");
     bot(seed);
     const write = (file, text) => fs.writeFileSync(path.join(seed, file), text);
     write("gradle.properties", "version=7.0.1-SNAPSHOT\n");
@@ -45,10 +45,10 @@ describe("merge-release", () => {
     write("B.java", "class B {}\n");
     git(seed, "add", "-A");
     commit(seed, "frozen tip");
-    git(seed, "push", "-q", origin, "HEAD:refs/heads/disclosure/frozen/7.0.x");
+    git(seed, "push", "-q", origin, "HEAD:refs/heads/embargoed/frozen/7.0.x");
     const frozen = git(seed, "rev-parse", "HEAD");
 
-    git(seed, "switch", "-q", "-c", "disclosure/active/7.0.x");
+    git(seed, "switch", "-q", "-c", "embargoed/active/7.0.x");
     if (fix) {
       write("A.java", "class A {\n  int x = 1; // the CVE fix\n}\n");
       commit(seed, "CVE fix");
@@ -56,7 +56,7 @@ describe("merge-release", () => {
     if (edit) {
       edit.active(write, seed, commit);
     }
-    git(seed, "push", "-q", origin, "HEAD:refs/heads/disclosure/active/7.0.x");
+    git(seed, "push", "-q", origin, "HEAD:refs/heads/embargoed/active/7.0.x");
 
     if (release) {
       git(seed, "switch", "-q", "-c", "release/7.0.1", frozen);
@@ -86,8 +86,8 @@ describe("merge-release", () => {
       "switch",
       "-q",
       "-c",
-      "disclosure/7.0.1.1-SNAPSHOT",
-      "origin/disclosure/active/7.0.x",
+      "embargoed/7.0.1.1-SNAPSHOT",
+      "origin/embargoed/active/7.0.x",
     );
     return { clone, origin, seed };
   }
@@ -110,7 +110,7 @@ describe("merge-release", () => {
     expect(merge(clone).merged).toBe("true");
     expect(git(clone, "log", "-1", "--format=%P").split(" ")).toHaveLength(2);
     expect(git(clone, "log", "-1", "--format=%B").trim()).toBe(
-      "Merge release/7.0.1 into disclosure/7.0.1.1-SNAPSHOT\n\nSigned-off-by: github-actions[bot] <bot@example.com>",
+      "Merge release/7.0.1 into embargoed/7.0.1.1-SNAPSHOT\n\nSigned-off-by: github-actions[bot] <bot@example.com>",
     );
     expect(git(clone, "rev-parse", "HEAD^1")).toBe(before);
     expect(git(clone, "rev-parse", "HEAD^2")).toBe(
@@ -118,7 +118,7 @@ describe("merge-release", () => {
     );
   });
 
-  it("keeps the fixes of the active disclosure, and takes what the release changed", () => {
+  it("keeps the fixes of the active embargoed branch, and takes what the release changed", () => {
     const { clone } = world();
     merge(clone);
     expect(read(clone, "A.java")).toContain("the CVE fix");
@@ -129,7 +129,7 @@ describe("merge-release", () => {
   });
 
   it("makes a merge commit even if the release could be fast forwarded to", () => {
-    // the active disclosure has no fix yet: it is the frozen tip, which the release is built on
+    // the active embargoed branch has no fix yet: it is the frozen tip, which the release is built on
     const { clone } = world({ fix: false });
     expect(merge(clone).merged).toBe("true");
     expect(git(clone, "log", "-1", "--format=%P").split(" ")).toHaveLength(2);
@@ -153,7 +153,7 @@ describe("merge-release", () => {
   it("merges the release of the remote, and not a branch of that name that is here", () => {
     const { clone } = world();
     // an old release/7.0.1 in the clone, as the checkout of a workflow never has: it must not be used
-    git(clone, "branch", "release/7.0.1", "origin/disclosure/frozen/7.0.x");
+    git(clone, "branch", "release/7.0.1", "origin/embargoed/frozen/7.0.x");
     merge(clone);
     expect(read(clone, "gradle.properties")).toBe("version=7.0.1\n");
   });
@@ -181,11 +181,11 @@ describe("merge-release", () => {
   });
 
   it("fails, and undoes the merge, for a conflict that the active side cannot settle", () => {
-    // the active disclosure changed B.java, and the release deleted it
+    // the active embargoed branch changed B.java, and the release deleted it
     const { clone } = world({ edit: deletedAndChanged });
     const before = git(clone, "rev-parse", "HEAD");
     expect(() => merge(clone)).toThrow(
-      /release\/7\.0\.1 could not be merged into disclosure\/7\.0\.1\.1-SNAPSHOT: B\.java .*Merge release\/7\.0\.1 into the active disclosure by hand/,
+      /release\/7\.0\.1 could not be merged into embargoed\/7\.0\.1\.1-SNAPSHOT: B\.java .*Merge release\/7\.0\.1 into the active embargoed branch by hand/,
     );
     expect(git(clone, "rev-parse", "HEAD")).toBe(before);
     expect(git(clone, "status", "--porcelain")).toBe("");
@@ -229,7 +229,7 @@ describe("merge-release", () => {
       expect(result.code).toBe(0);
       expect(result.outputs).toEqual({ merged: "true" });
       expect(result.stdout).toContain(
-        "Merged release/7.0.1 into disclosure/7.0.1.1-SNAPSHOT",
+        "Merged release/7.0.1 into embargoed/7.0.1.1-SNAPSHOT",
       );
       expect(read(clone, "gradle.properties")).toBe("version=7.0.1\n");
     });
@@ -240,7 +240,7 @@ describe("merge-release", () => {
       const again = await program(entry, clone);
       expect(again.outputs).toEqual({ merged: "up-to-date" });
       expect(again.stdout).toContain(
-        "is in disclosure/7.0.1.1-SNAPSHOT already",
+        "is in embargoed/7.0.1.1-SNAPSHOT already",
       );
     });
 
@@ -275,7 +275,7 @@ describe("merge-release", () => {
       const result = await program(entry, clone);
       expect(result.code).toBe(1);
       expect(result.stdout).toContain(
-        "::error::release/7.0.1 could not be merged into disclosure/7.0.1.1-SNAPSHOT: B.java",
+        "::error::release/7.0.1 could not be merged into embargoed/7.0.1.1-SNAPSHOT: B.java",
       );
       expect(git(clone, "rev-parse", "HEAD")).toBe(before);
       expect(git(clone, "status", "--porcelain")).toBe("");

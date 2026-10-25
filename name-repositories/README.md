@@ -1,6 +1,6 @@
 # name-repositories
 
-Names what follows from the repository that runs the workflow. The disclosure branches only exist in the commercial repository (`spring-security-commercial`). The project of the release train, and the OSS repository with the milestones and the issues (`spring-security`), are named after it: its name without `-commercial`.
+Names what follows from the repository that runs the workflow. The embargoed branches only exist in the commercial repository (`spring-security-commercial`). The project of the release train, and the OSS repository with the milestones and the issues (`spring-security`), are named after it: its name without `-commercial`.
 
 ## What it does
 

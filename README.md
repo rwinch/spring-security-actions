@@ -19,7 +19,7 @@ They are written in JavaScript (Node 24), and every one of them is **self contai
 | [`map-train-versions`](map-train-versions/README.md) | Which versions of a version catalog the release train asks to change, and to what. |
 | [`merge-release`](merge-release/README.md) | Merges the release into the branch of its hotfix. |
 | [`name-repositories`](name-repositories/README.md) | The project and its OSS repository, from the commercial repository. |
-| [`plan-release-branches`](plan-release-branches/README.md) | What the push of a disclosure branch builds. |
+| [`plan-release-branches`](plan-release-branches/README.md) | What the push of an embargoed branch builds. |
 | [`push-branches`](push-branches/README.md) | Pushes branches at once or none, and summarizes them. |
 | [`set-version`](set-version/README.md) | Sets the version of `gradle.properties`, in a commit of its own. |
 | [`start-branch`](start-branch/README.md) | Starts (or resets) a branch at a commit or a branch. |
@@ -27,7 +27,7 @@ They are written in JavaScript (Node 24), and every one of them is **self contai
 
 ## The workflow of the release automation
 
-[`release-branches.yml`](.github/workflows/release-branches.yml) is a reusable workflow that builds `release/<version>` and the snapshot branches on a push to a disclosure branch, with the actions above and nothing else (every step is an action). [docs/release-branches.md](docs/release-branches.md) is the guide: what it builds, how to call it, the secret and the tokens it needs, and what to do when it fails.
+[`release-branches.yml`](.github/workflows/release-branches.yml) is a reusable workflow that builds `release/<version>` and the snapshot branches on a push to an embargoed branch, with the actions above and nothing else (every step is an action). [docs/release-branches.md](docs/release-branches.md) is the guide: what it builds, how to call it, the secret and the tokens it needs, and what to do when it fails.
 
 ## Working on an action
 
