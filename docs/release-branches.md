@@ -4,7 +4,7 @@ A push to an embargoed branch of the commercial repository builds the branches o
 
 ## What a push builds
 
-The reusable workflow [`release-branches.yml`](../.github/workflows/release-branches.yml) of this repository, and the actions that it uses (each is a directory of this repository, with a README). The project calls it for a push to `embargoed/frozen/**` or `embargoed/active/**`. It builds the branches of the release again from the pushed commit, every time, and pushes them once, both or none, forced. Nobody commits to them.
+The reusable workflow [`release-branches.yml`](../.github/workflows/release-branches.yml) of this repository, and the actions that it uses (each is a directory of this repository, with a README). The project calls it for a push to `embargoed/frozen/**`, `embargoed/active/**` or `embargoed/lts/**`. It builds the branches of the release again from the pushed commit, every time, and pushes them once, both or none, forced. Nobody commits to them.
 
 A push to a snapshot branch that it built (`embargoed/*-SNAPSHOT`) is for the project to publish: the pushes are made with `RELEASE_AUTOMATION_TOKEN`, so they run the workflows of the project.
 
@@ -14,6 +14,12 @@ A push to a snapshot branch that it built (`embargoed/*-SNAPSHOT`) is for the pr
 | The commits of the release | one for each dependency that the release train asks for, with its issue (`Closes gh-123`), and then `Release 7.0.1` | one for each dependency that has a hotfix version in the train, with its issue in the commercial repository (the others keep the version that the release has), and then `Release 7.0.1.1` |
 | The snapshot branch | `embargoed/7.0.1-INTERNAL-SNAPSHOT`: its version, and an internal snapshot of every dependency that has joined the train (no issues). Thrown away when the release is done | `embargoed/7.0.1.1-SNAPSHOT`: `release/7.0.1` merged in first, then the commercial license and the Broadcom headers, its version, and a snapshot of every dependency that has a hotfix version in the train (no issues) |
 | Not built | a hotfix (a frozen embargoed branch has none) | nothing at all for a version that ends with `.0` (it is not a patch release, so it has no hotfix), and nothing at all for an active embargoed branch that has no changes that the frozen one of its generation lacks (a notice says so) |
+
+### A long-term support embargoed branch
+
+`embargoed/lts/<generation>` (`embargoed/lts/5.8.x`, `5.8.30-SNAPSHOT`) is commercial: it is merged into other long-term support branches only, and releases its own version. A push builds only `release/5.8.30`, from the pushed commit, with **no snapshot branch** and no internal snapshot. The commits of the release are the ones of a frozen branch (an issue for each dependency that the release train asks for, and then `Release 5.8.30`), but the milestone `5.8.30` and the issues are in the **commercial repository**, since there is no OSS release. It is deployed to `spring_enterprise`.
+
+Its train is found as for a release: the milestone `5.8.30` is due on the date of the train, `2026-11-19` for the train `2026.11.19`. The due date of its milestone is not changed. The release joins the train with the destination `spring_enterprise`, and takes the release versions of the train (it prefers no hotfix versions of the dependencies).
 
 ### The hotfix is built on the release
 
@@ -43,6 +49,7 @@ on:
     branches:
       - "embargoed/frozen/**"
       - "embargoed/active/**"
+      - "embargoed/lts/**"
   # Run it by hand on an embargoed branch (for example after the due date of a milestone was set):
   # it builds the branches again from the head of the branch, and joins the train if it has not.
   workflow_dispatch:

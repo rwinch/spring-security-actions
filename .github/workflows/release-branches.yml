@@ -16,6 +16,12 @@ name: release-branches
 #                                             the hotfix version, and snapshots of the
 #                                             dependencies that have a hotfix
 #     release/<hotfix>                        the release of the hotfix, from that branch
+#   embargoed/lts/<generation>      a long-term support release of the version of the branch
+#     release/<release version>               the release, as for a frozen branch. No snapshot
+#                                             branch. The branch is commercial, so its milestone
+#                                             and the issues of its dependency updates are in the
+#                                             commercial repository, and it is deployed to
+#                                             spring_enterprise
 #   A hotfix is only built if the active embargoed branch has changes that the frozen one of
 #   its generation lacks. If it has none (right after the frozen one was merged into it),
 #   nothing is built, and the milestone of the hotfix is not looked for.
@@ -70,7 +76,7 @@ jobs:
     name: Plan
     runs-on: ${{ inputs.runs-on || 'ubuntu-latest' }}
     outputs:
-      release: ${{ steps.plan.outputs.release == 'true' && (steps.plan.outputs.kind == 'frozen' || steps.compare.outputs.different == 'true') && steps.release.outputs.found != 'false' }}
+      release: ${{ steps.plan.outputs.release == 'true' && (steps.plan.outputs.kind != 'active' || steps.compare.outputs.different == 'true') && steps.release.outputs.found != 'false' }}
       kind: ${{ steps.plan.outputs.kind }}
       base-version: ${{ steps.plan.outputs.base-version }}
       hotfix: ${{ steps.plan.outputs.hotfix }}
@@ -95,7 +101,7 @@ jobs:
         uses: spring-io/spring-release-actions/compute-version@3f7412aeec60ad13127b2a536a1b19a2803a5b81 # 0.0.8
       - name: Decide what to build
         id: plan
-        uses: spring-io/spring-security-actions/plan-release-branches@4dd16cd0922a3df7ba47afa2f18c7bb74632ba42 # 0.0.11
+        uses: spring-io/spring-security-actions/plan-release-branches@f78271b00132b891dc2fb82c0edc76c4d48d68a3 # 0.0.11
         with:
           ref-name: ${{ github.ref_name }}
           version: ${{ steps.version.outputs.version }}
@@ -117,18 +123,18 @@ jobs:
       # repository, so its milestone and the issues of its dependency updates are in that one.
       - name: Name the repositories
         id: repositories
-        if: steps.plan.outputs.release == 'true' && (steps.plan.outputs.kind == 'frozen' || steps.compare.outputs.different == 'true')
+        if: steps.plan.outputs.release == 'true' && (steps.plan.outputs.kind != 'active' || steps.compare.outputs.different == 'true')
         uses: spring-io/spring-security-actions/name-repositories@538fffe880503809a715e25c13519275af05da69 # 0.0.9
       # If the milestone does not exist (a version that is not planned, or a hotfix whose milestone
       # is not created yet), nothing is built: the run ends with a notice, and the build job is skipped.
       - name: Work out the release version
         id: release
-        if: steps.plan.outputs.release == 'true' && (steps.plan.outputs.kind == 'frozen' || steps.compare.outputs.different == 'true')
+        if: steps.plan.outputs.release == 'true' && (steps.plan.outputs.kind != 'active' || steps.compare.outputs.different == 'true')
         uses: spring-io/spring-security-actions/compute-release-version@538fffe880503809a715e25c13519275af05da69 # 0.0.9
         with:
           snapshot-version: ${{ steps.plan.outputs.base-version }}
-          milestone-repository: ${{ steps.plan.outputs.kind == 'active' && github.repository || steps.repositories.outputs.oss-repository }}
-          milestone-token: ${{ steps.plan.outputs.kind == 'active' && secrets.RELEASE_AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
+          milestone-repository: ${{ steps.plan.outputs.kind != 'frozen' && github.repository || steps.repositories.outputs.oss-repository }}
+          milestone-token: ${{ steps.plan.outputs.kind != 'frozen' && secrets.RELEASE_AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
           fail-if-missing: "false"
           # The due date of a hotfix is corrected to the commercial availability of its train
           require-due-date: ${{ steps.plan.outputs.kind != 'active' }}
@@ -199,11 +205,12 @@ jobs:
           train-branch: ${{ steps.train.outputs.branch }}
           train-url: ${{ format('{0}/{1}/tree/{2}', github.server_url, inputs.release-train-repository || 'spring-io/release-train', steps.train.outputs.branch) }}
 
-      # The snapshot branch: from the pushed commit. A hotfix has the release merged in, and
+      # The snapshot branch (none for a long-term support branch): from the pushed commit. A hotfix has the release merged in, and
       # then the commercial license and headers. Then its version, and the dependencies that
       # have joined the release train, as snapshots. Nothing of that has an issue: it is
       # thrown away, or replaced.
       - name: Start the snapshot branch
+        if: env.KIND != 'lts'
         uses: spring-io/spring-security-actions/start-branch@538fffe880503809a715e25c13519275af05da69 # 0.0.9
         with:
           branch: ${{ env.SNAPSHOT_BRANCH }}
@@ -223,13 +230,14 @@ jobs:
         with:
           commit-message: Commercial changes for ${{ needs.plan.outputs.release-version }}
       - name: Set the version of the snapshot
+        if: env.KIND != 'lts'
         uses: spring-io/spring-security-actions/set-version@538fffe880503809a715e25c13519275af05da69 # 0.0.9
         with:
           version: ${{ env.SNAPSHOT_VERSION }}
           message: Set the version to ${{ env.SNAPSHOT_VERSION }}
       - name: Work out the snapshots of the dependencies
         id: snapshot-versions
-        if: steps.train.outputs.found == 'true'
+        if: env.KIND != 'lts' && steps.train.outputs.found == 'true'
         uses: spring-io/spring-security-actions/map-train-versions@538fffe880503809a715e25c13519275af05da69 # 0.0.9
         with:
           release-versions-file: ${{ steps.train.outputs.release-versions-file }}
@@ -238,7 +246,7 @@ jobs:
           suffix: -INTERNAL-SNAPSHOT
           hotfix-suffix: -SNAPSHOT
       - name: Update the dependencies of the snapshot
-        if: steps.train.outputs.found == 'true'
+        if: env.KIND != 'lts' && steps.train.outputs.found == 'true'
         uses: spring-io/spring-security-actions/update-versions@538fffe880503809a715e25c13519275af05da69 # 0.0.9
         with:
           versions: ${{ steps.snapshot-versions.outputs.versions }}
@@ -268,7 +276,7 @@ jobs:
         uses: spring-io/spring-security-actions/ensure-dependency-issues@538fffe880503809a715e25c13519275af05da69 # 0.0.9
         with:
           versions: ${{ steps.versions.outputs.versions }}
-          repository: ${{ env.KIND == 'active' && github.repository || needs.plan.outputs.oss-repository }}
+          repository: ${{ env.KIND != 'frozen' && github.repository || needs.plan.outputs.oss-repository }}
           milestone: ${{ needs.plan.outputs.release-version }}
           labels: "type: dependency-upgrade"
           token: ${{ secrets.RELEASE_AUTOMATION_TOKEN }}
@@ -294,7 +302,7 @@ jobs:
           train-status: ${{ steps.not-ready.outputs.status }}
           branches: |
             release/${{ needs.plan.outputs.release-version }}=${{ needs.plan.outputs.release-version }}
-            ${{ env.SNAPSHOT_BRANCH }}=${{ env.SNAPSHOT_VERSION }}
+            ${{ env.SNAPSHOT_BRANCH && format('{0}={1}', env.SNAPSHOT_BRANCH, env.SNAPSHOT_VERSION) }}
 
       # The release has joined the train once its branches are pushed (the train builds the release
       # branch), a train exists, and the milestone has its due date: the one of the train for a
