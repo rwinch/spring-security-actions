@@ -20,6 +20,8 @@ Pushes the branches that the workflow built, all at once or none, so that a fail
 | `train` | | The release train that was used, `2026.11.19`. The summary has the line `Release train 2026.11.19` under its title. |
 | `train-url` | | The URL of the branch of that train: the line of the summary links to it. |
 | `train-status` | | Where the release is in the train, `not-joined`, `joined` or `ready` (the output `status` of `check-not-ready`). The line of the train says so: `Release train 2026.11.19: joined, not ready yet`. |
+| `train-state` | | The state of the train itself (`pending`, `promoted`, ...), the output `train-state` of `check-not-ready`. The line says `Release train 2026.11.19 is pending`. |
+| `train-state-url` | | The URL of the line of `train.yml` with the state: the state links to it. |
 | `path` | `.` | The directory of the git repository. |
 
 ## Secrets and permissions

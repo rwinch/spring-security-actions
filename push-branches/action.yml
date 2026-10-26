@@ -27,6 +27,12 @@ inputs:
   train-status:
     description: "Where the release is in the train: not-joined, joined or ready, the output status of check-not-ready. The summary says so after the train."
     required: false
+  train-state:
+    description: "The state of the train itself, the output train-state of check-not-ready. The summary says so after the train."
+    required: false
+  train-state-url:
+    description: "The URL of the line of train.yml with that state. The state links to it."
+    required: false
   path:
     description: "The directory of the git repository."
     required: false

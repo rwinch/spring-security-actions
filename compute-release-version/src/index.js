@@ -2,6 +2,7 @@ import * as core from "@actions/core";
 import { parseBoolean } from "./inputs.js";
 import { call, createOctokit, parseRepository } from "./octokit.js";
 import { execute, isMain } from "./run.js";
+import { addSummary } from "./summary.js";
 
 const SNAPSHOT = "-SNAPSHOT";
 
@@ -18,6 +19,53 @@ function listMilestones(octokit, repository, state) {
       per_page: 100,
     }),
   );
+}
+
+/** The milestone exists, but has no due date: it carries what the summary links to. */
+class NoDueDateError extends Error {
+  constructor(message, milestone) {
+    super(message);
+    this.milestone = milestone;
+  }
+}
+
+const SERVER = () =>
+  (process.env.GITHUB_SERVER_URL || "https://github.com").replace(/\/+$/, "");
+
+const TRAIN_HELP =
+  "a due date that matches a release train: the name of its branch in the release train repository is its date (the train 2026.11.19 is due 2026-11-19)";
+
+/**
+ * The summary for a release that cannot join a release train yet, because its milestone
+ * does not exist or has no due date: what to create or change, with links to do it. A
+ * hotfix (7.0.1.1) is released from the commercial repository, so its milestone is
+ * created there, and the summary names the OSS version it is a hotfix of.
+ */
+export function noTrainSummary({ candidate, repository, milestone }) {
+  const hotfix = /^\d+\.\d+\.\d+\.\d+$/.test(candidate)
+    ? candidate.slice(0, candidate.lastIndexOf("."))
+    : undefined;
+  const lines = [`### ${candidate} is not in a release train`, ""];
+  if (milestone) {
+    lines.push(
+      `The milestone ${candidate} of ${repository} has no due date.`,
+      "",
+      `To add it to a release train, [set its due date](${milestone.html_url}/edit) to ${TRAIN_HELP}, and run the workflow again.`,
+    );
+  } else {
+    lines.push(
+      `${repository} has no milestone ${candidate}.`,
+      "",
+      `To add it to a release train, [create the milestone ${candidate}](${SERVER()}/${repository}/milestones/new) in ${repository} with ${TRAIN_HELP}, and run the workflow again.`,
+    );
+  }
+  if (hotfix) {
+    lines.push(
+      "",
+      `${candidate} is a hotfix of the OSS version ${hotfix}, and is released from the commercial repository: its milestone is in ${repository}, not in the OSS repository.`,
+    );
+  }
+  return `${lines.join("\n")}\n`;
 }
 
 /**
@@ -96,6 +144,7 @@ export async function run(
     if (matching.length === 0) {
       return {
         found: false,
+        candidate,
         message: `${milestoneRepository} has no open milestone for ${candidate}: expected ${candidate}, ${candidate}-M<n> or ${candidate}-RC<n>, so nothing is built`,
       };
     }
@@ -106,6 +155,7 @@ export async function run(
     if (!milestone) {
       return {
         found: false,
+        candidate,
         message: `${milestoneRepository} has no milestone ${candidate}, so nothing is built`,
       };
     }
@@ -115,8 +165,9 @@ export async function run(
     ? new Date(milestone.due_on).toISOString().slice(0, 10)
     : "";
   if (!dueDate && requireDueDate) {
-    throw new Error(
+    throw new NoDueDateError(
       `The milestone ${milestone.title} of ${milestoneRepository} has no due date (set require-due-date to false to allow that)`,
+      milestone,
     );
   }
   return {
@@ -145,8 +196,28 @@ export async function main() {
     ),
   };
   const octokit = createOctokit({ token: core.getInput("milestone-token") });
-  const result = await run(inputs, { octokit });
+  let result;
+  try {
+    result = await run(inputs, { octokit });
+  } catch (error) {
+    if (error instanceof NoDueDateError) {
+      addSummary(
+        noTrainSummary({
+          candidate: error.milestone.title,
+          repository: inputs.milestoneRepository,
+          milestone: error.milestone,
+        }),
+      );
+    }
+    throw error;
+  }
   if (!result.found) {
+    addSummary(
+      noTrainSummary({
+        candidate: result.candidate,
+        repository: inputs.milestoneRepository,
+      }),
+    );
     if (inputs.failIfMissing) {
       throw new Error(result.message);
     }

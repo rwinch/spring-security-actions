@@ -6,6 +6,7 @@ import { checkNotReady } from "../src/index.js";
 import { runAction } from "./support/run-action.js";
 
 const train = (hashes) => ({
+  state: "started",
   releases: { "spring-merge": { "7.0.1": { "commit-hashes": hashes } } },
 });
 const base = {
@@ -96,24 +97,35 @@ describe.each([["src/index.js"], ["dist/index.js"]])(
         {
           ...inputs(train({ ready: "b" })),
           "train-url": "https://github.com/acme/train/tree/2026.11.19",
+          "train-state-url":
+            "https://github.com/acme/train/blob/2026.11.19/train.yml#L1",
         },
         { GITHUB_STEP_SUMMARY: summary },
       );
       expect(result.code).toBe(1);
-      expect(result.outputs).toEqual({ status: "ready" });
+      expect(result.outputs).toEqual({
+        status: "ready",
+        "train-state": "started",
+      });
       expect(fs.readFileSync(summary, "utf8")).toBe(
-        "[Release train 2026.11.19](https://github.com/acme/train/tree/2026.11.19): ready\n\n",
+        "[Release train 2026.11.19](https://github.com/acme/train/tree/2026.11.19) is [started](https://github.com/acme/train/blob/2026.11.19/train.yml#L1): ready\n\n",
       );
     });
 
     it("has the status joined for a release that is not ready", async () => {
       const result = await runAction(entry, inputs(train({ joined: "a" })));
-      expect(result.outputs).toEqual({ status: "joined" });
+      expect(result.outputs).toEqual({
+        status: "joined",
+        "train-state": "started",
+      });
     });
 
     it("has the status not-joined for a release that is not in the train", async () => {
       const result = await runAction(entry, inputs({}));
-      expect(result.outputs).toEqual({ status: "not-joined" });
+      expect(result.outputs).toEqual({
+        status: "not-joined",
+        "train-state": "",
+      });
     });
 
     it("succeeds for a release that is not ready", async () => {

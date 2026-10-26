@@ -37,6 +37,8 @@ The due date is the date of the due date of the milestone in UTC. GitHub keeps o
 - the milestone has no due date, unless `require-due-date` is `false`
 - GitHub answers with an error. A `404` means the repository does not exist, or the token cannot read it.
 
+When the milestone does not exist, or has no due date, the summary of the step says how to add the version to a release train: a link to create the milestone (GitHub cannot prefill its title, so the text names it) or to edit its due date, which must match the date of a train. For a hotfix (`7.0.1.1`) it also names the OSS version it is a hotfix of (`7.0.1`), and says the milestone is in the commercial repository.
+
 ## Secrets and permissions
 
 The action only reads milestones.

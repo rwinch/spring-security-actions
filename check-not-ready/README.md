@@ -18,11 +18,13 @@ Fails if the project has released the version in the release train already. A re
 | `version` | required | The version of the release, for example `7.0.1`. |
 | `train-branch` | no | The branch of the train, for the message. |
 | `train-url` | no | The URL of the branch of the train. A release that is ready is said so in the summary of the step, and its text links to it. |
+| `train-state-url` | no | The URL of the line of `train.yml` with the state of the train. The state links to it in the summary. |
 
 ## Outputs
 
 | Output | Description |
 |---|---|
+| `train-state` | The state of the train itself, the `state` at the top of `train.yml`. Seen so far: `pending`, `started`, `tested`, `staged`, `promoting`, `promoted`, `paused`. Empty if it has none. |
 | `status` | `not-joined` (not in the train), `joined` (in the train, not ready yet) or `ready` (the action fails). |
 
 ## Secrets and permissions

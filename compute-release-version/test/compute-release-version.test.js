@@ -1,6 +1,8 @@
 import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { candidateOf, run } from "../src/index.js";
+import { candidateOf, noTrainSummary, run } from "../src/index.js";
 import { createOctokit } from "../src/octokit.js";
 import { defaultMilestones, startFakeGitHub } from "./support/fake-github.js";
 import { runAction } from "./support/run-action.js";
@@ -71,6 +73,7 @@ describe("run", () => {
     it("reports that there is no milestone", async () => {
       expect(await release("7.0.9-SNAPSHOT")).toEqual({
         found: false,
+        candidate: "7.0.9",
         message: `${REPO} has no milestone 7.0.9, so nothing is built`,
       });
     });
@@ -245,6 +248,46 @@ describe("run", () => {
   });
 });
 
+describe("noTrainSummary", () => {
+  const server = "https://github.com";
+  it("links to create a milestone that does not exist", () => {
+    expect(
+      noTrainSummary({ candidate: "7.0.9", repository: "acme/widgets" }),
+    ).toBe(
+      [
+        "### 7.0.9 is not in a release train",
+        "",
+        "acme/widgets has no milestone 7.0.9.",
+        "",
+        `To add it to a release train, [create the milestone 7.0.9](${server}/acme/widgets/milestones/new) in acme/widgets with a due date that matches a release train: the name of its branch in the release train repository is its date (the train 2026.11.19 is due 2026-11-19), and run the workflow again.`,
+        "",
+      ].join("\n"),
+    );
+  });
+
+  it("links to set the due date of a milestone that has none", () => {
+    const summary = noTrainSummary({
+      candidate: "7.2.0-M1",
+      repository: "acme/widgets",
+      milestone: { html_url: `${server}/acme/widgets/milestone/12` },
+    });
+    expect(summary).toContain("has no due date.");
+    expect(summary).toContain(
+      `[set its due date](${server}/acme/widgets/milestone/12/edit)`,
+    );
+  });
+
+  it("names the OSS version of a hotfix, and says where its milestone is", () => {
+    const summary = noTrainSummary({
+      candidate: "7.0.1.1",
+      repository: "acme/widgets-commercial",
+    });
+    expect(summary).toContain(
+      "7.0.1.1 is a hotfix of the OSS version 7.0.1, and is released from the commercial repository: its milestone is in acme/widgets-commercial, not in the OSS repository.",
+    );
+  });
+});
+
 // The actions run as programs: the sources, and the bundle that GitHub runs (dist/).
 describe.each([["src/index.js"], ["dist/index.js"]])(
   "the program %s",
@@ -289,6 +332,23 @@ describe.each([["src/index.js"], ["dist/index.js"]])(
         "due-date": "",
         "milestone-url": `https://github.com/${REPO}/milestone/12`,
       });
+    });
+
+    it("says in the summary how to add the version to a train", async () => {
+      const summary = path.join(
+        fs.mkdtempSync(path.join(os.tmpdir(), "summary-")),
+        "summary.md",
+      );
+      for (const [version, expected] of [
+        ["7.0.9-SNAPSHOT", "[create the milestone 7.0.9]"],
+        ["7.2.0-SNAPSHOT", "[set its due date]"],
+      ]) {
+        await runAction(entry, inputs(version), {
+          GITHUB_API_URL: fake.url,
+          GITHUB_STEP_SUMMARY: summary,
+        });
+        expect(fs.readFileSync(summary, "utf8")).toContain(expected);
+      }
     });
 
     it("fails with an error that GitHub shows", async () => {

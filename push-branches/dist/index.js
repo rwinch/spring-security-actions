@@ -31798,15 +31798,18 @@ const TRAIN_STATUS = {
 
 /**
  * The line of the summary that links to the release train that was used: the text is the
- * link, followed by where the release is in the train (the status of check-not-ready).
+ * link, followed by the state of the train (linked) and where the release is in it (the status of check-not-ready).
  * Nothing without a train.
  */
-function trainLine(train, trainUrl, status) {
+function trainLine(train, trainUrl, status, state, stateUrl) {
   if (!train) {
     return [];
   }
   const name = `Release train ${train}`;
-  const text = trainUrl ? `[${name}](${trainUrl})` : name;
+  let text = trainUrl ? `[${name}](${trainUrl})` : name;
+  if (state) {
+    text += ` is ${stateUrl ? `[${state}](${stateUrl})` : state}`;
+  }
   const where = TRAIN_STATUS[status];
   return [where ? `${text}: ${where}` : text, ""];
 }
@@ -31835,6 +31838,8 @@ async function main() {
         getInput("train"),
         getInput("train-url"),
         getInput("train-status"),
+        getInput("train-state"),
+        getInput("train-state-url"),
       ),
       table(
         ["Branch", "Version", "Commits on the pushed commit"],

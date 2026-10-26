@@ -235,6 +235,9 @@ describe.each([["src/index.js"], ["dist/index.js"]])(
           "milestone-url": "https://github.com/acme/widgets/milestone/12",
           train: "2026.11.19",
           "train-status": "joined",
+          "train-state": "pending",
+          "train-state-url":
+            "https://github.com/acme/train/blob/2026.11.19/train.yml#L1",
           "train-url": "https://github.com/acme/train/tree/2026.11.19",
         },
         { GITHUB_STEP_SUMMARY: summary },
@@ -244,7 +247,7 @@ describe.each([["src/index.js"], ["dist/index.js"]])(
         [
           "### t",
           "",
-          "[Release train 2026.11.19](https://github.com/acme/train/tree/2026.11.19): joined, not ready yet",
+          "[Release train 2026.11.19](https://github.com/acme/train/tree/2026.11.19) is [pending](https://github.com/acme/train/blob/2026.11.19/train.yml#L1): joined, not ready yet",
           "",
           "| Branch | Version | Commits on the pushed commit |",
           "| --- | --- | --- |",

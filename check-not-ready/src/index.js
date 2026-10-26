@@ -40,6 +40,20 @@ const STATUS_TEXT = {
   ready: "ready",
 };
 
+/**
+ * The text of the train in the summary: Release train 2026.11.19 (linked to the branch)
+ * is pending (the state, linked to its line in train.yml). The state is left out if the
+ * train has none.
+ */
+export function trainText(branch, url, state, stateUrl) {
+  const name = `Release train ${branch}`;
+  const text = url ? `[${name}](${url})` : name;
+  if (!state) {
+    return text;
+  }
+  return `${text} is ${stateUrl ? `[${state}](${stateUrl})` : state}`;
+}
+
 export async function main() {
   const file = core.getInput("train-file", { required: true });
   let train;
@@ -55,11 +69,12 @@ export async function main() {
   const trainBranch = core.getInput("train-branch") || "(unknown)";
   const status = trainStatus({ train, project, version });
   core.setOutput("status", status);
+  core.setOutput("train-state", train?.state ?? "");
   if (status === "ready") {
     // the run fails here, so nothing after it says where the release is in the train
-    const url = core.getInput("train-url");
-    const name = `Release train ${trainBranch}`;
-    addSummary(`${url ? `[${name}](${url})` : name}: ${STATUS_TEXT[status]}\n`);
+    addSummary(
+      `${trainText(trainBranch, core.getInput("train-url"), train?.state, core.getInput("train-state-url"))}: ${STATUS_TEXT[status]}\n`,
+    );
   }
   const known = checkNotReady({ train, project, version, trainBranch });
   core.info(

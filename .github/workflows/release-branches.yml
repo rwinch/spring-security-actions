@@ -204,6 +204,7 @@ jobs:
           version: ${{ needs.plan.outputs.release-version }}
           train-branch: ${{ steps.train.outputs.branch }}
           train-url: ${{ format('{0}/{1}/tree/{2}', github.server_url, inputs.release-train-repository || 'spring-io/release-train', steps.train.outputs.branch) }}
+          train-state-url: ${{ format('{0}/{1}/blob/{2}/train.yml#L1', github.server_url, inputs.release-train-repository || 'spring-io/release-train', steps.train.outputs.branch) }}
 
       # The snapshot branch (none for a long-term support branch): from the pushed commit. A hotfix has the release merged in, and
       # then the commercial license and headers. Then its version, and the dependencies that
@@ -300,6 +301,8 @@ jobs:
           train: ${{ steps.train.outputs.found == 'true' && steps.train.outputs.branch || '' }}
           train-url: ${{ steps.train.outputs.found == 'true' && format('{0}/{1}/tree/{2}', github.server_url, inputs.release-train-repository || 'spring-io/release-train', steps.train.outputs.branch) || '' }}
           train-status: ${{ steps.not-ready.outputs.status }}
+          train-state: ${{ steps.not-ready.outputs.train-state }}
+          train-state-url: ${{ format('{0}/{1}/blob/{2}/train.yml#L1', github.server_url, inputs.release-train-repository || 'spring-io/release-train', steps.train.outputs.branch) }}
           branches: |
             release/${{ needs.plan.outputs.release-version }}=${{ needs.plan.outputs.release-version }}
             ${{ env.SNAPSHOT_BRANCH && format('{0}={1}', env.SNAPSHOT_BRANCH, env.SNAPSHOT_VERSION) }}
