@@ -32,11 +32,18 @@ name: release-branches
 # This is a reusable workflow: a project calls it from a workflow that is triggered by the
 # push of the embargoed branches (see docs/release-branches.md for the caller, the secret
 # and the variable it needs). The actions are the ones of this repository, each in a
-# directory of its own with a README.
+# directory of its own with a README. The jobs run on the runner that the caller gives
+# (runs-on), ubuntu-latest if it gives none: a private or internal repository gives the
+# label of the runners of its organization, as GitHub bills the others to the account.
 
 on:
   workflow_call:
     inputs:
+      runs-on:
+        description: "The runner of the jobs: a label, such as ubuntu22-2-8 for the runners of the organization. A caller that passes an empty value, as a variable that is not set is, gets the default"
+        type: string
+        required: false
+        default: ubuntu-latest
       release-train-repository:
         description: "The repository of the release train (owner/repo). A caller that passes an empty value, as a variable that is not set is, gets the default"
         type: string
@@ -53,7 +60,7 @@ permissions:
 jobs:
   plan:
     name: Plan
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runs-on || 'ubuntu-latest' }}
     outputs:
       release: ${{ steps.plan.outputs.release == 'true' && (steps.plan.outputs.kind == 'frozen' || steps.compare.outputs.different == 'true') && steps.release.outputs.found != 'false' }}
       kind: ${{ steps.plan.outputs.kind }}
@@ -117,7 +124,7 @@ jobs:
     name: Build the branches
     needs: plan
     if: needs.plan.outputs.release == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runs-on || 'ubuntu-latest' }}
     env:
       KIND: ${{ needs.plan.outputs.kind }}
       HOTFIX: ${{ needs.plan.outputs.hotfix }}

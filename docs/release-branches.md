@@ -55,6 +55,7 @@ jobs:
   release-branches:
     uses: spring-io/spring-security-actions/.github/workflows/release-branches.yml@<ref>
     with:
+      runs-on: ${{ vars.UBUNTU_RUNS_ON }}
       release-train-repository: ${{ vars.RELEASE_TRAIN_REPOSITORY }}
     secrets:
       RELEASE_AUTOMATION_TOKEN: ${{ secrets.RELEASE_AUTOMATION_TOKEN }}
@@ -62,6 +63,7 @@ jobs:
 
 | Input or secret | What it is |
 |---|---|
+| `runs-on` (input) | The runner of the jobs, a label. `ubuntu-latest` if it is not given, or empty. A private or internal repository should give the label of the runners of its organization (`ubuntu22-2-8`, in the runner group `spring-enterprise-builds`, for the commercial repositories, which keep it in the variable `UBUNTU_RUNS_ON`): GitHub-hosted runners are billed to the account, and GitHub refuses the jobs ("The job was not started because recent account payments have failed or your spending limit needs to be increased") if it cannot pay. |
 | `release-train-repository` (input) | The release train repository, `owner/repo`. `spring-io/release-train` if it is not given, or empty. |
 | `RELEASE_AUTOMATION_TOKEN` (secret) | The token below. A reusable workflow gets only the secrets that its caller gives it. |
 
