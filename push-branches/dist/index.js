@@ -28627,7 +28627,9 @@ __nccwpck_require__.d(__webpack_exports__, {
   pO: () => (/* binding */ branchCell),
   iW: () => (/* binding */ main),
   G: () => (/* binding */ parseBranches),
-  XB: () => (/* binding */ pushBranches)
+  XB: () => (/* binding */ pushBranches),
+  hR: () => (/* binding */ trainLine),
+  zu: () => (/* binding */ versionCell)
 });
 
 ;// CONCATENATED MODULE: external "os"
@@ -31776,6 +31778,39 @@ function branchCell(branch) {
   return `[${name}](${server}/${repository}/tree/${encoded})`;
 }
 
+/**
+ * The cell of a version in the summary: linked to the milestone of the release, if there
+ * is one. A snapshot version (-SNAPSHOT, -INTERNAL-SNAPSHOT) has no milestone, so it is
+ * plain text.
+ */
+function versionCell(version, milestoneUrl) {
+  if (!milestoneUrl || version.endsWith("-SNAPSHOT")) {
+    return version;
+  }
+  return `[${version}](${milestoneUrl})`;
+}
+
+const TRAIN_STATUS = {
+  "not-joined": "not joined yet",
+  joined: "joined, not ready yet",
+  ready: "ready",
+};
+
+/**
+ * The line of the summary that links to the release train that was used: the text is the
+ * link, followed by where the release is in the train (the status of check-not-ready).
+ * Nothing without a train.
+ */
+function trainLine(train, trainUrl, status) {
+  if (!train) {
+    return [];
+  }
+  const name = `Release train ${train}`;
+  const text = trainUrl ? `[${name}](${trainUrl})` : name;
+  const where = TRAIN_STATUS[status];
+  return [where ? `${text}: ${where}` : text, ""];
+}
+
 async function main() {
   const base = getInput("base") || process.env.GITHUB_SHA;
   if (!base) {
@@ -31796,11 +31831,16 @@ async function main() {
     [
       `### ${getInput("title") || process.env.GITHUB_REF_NAME || "Branches"}`,
       "",
+      ...trainLine(
+        getInput("train"),
+        getInput("train-url"),
+        getInput("train-status"),
+      ),
       table(
         ["Branch", "Version", "Commits on the pushed commit"],
         pushed.map(({ branch, version, commits }) => [
           branchCell(branch),
-          version,
+          versionCell(version, getInput("milestone-url")),
           commits,
         ]),
       ),
@@ -31816,4 +31856,6 @@ var __webpack_exports__branchCell = __webpack_exports__.pO;
 var __webpack_exports__main = __webpack_exports__.iW;
 var __webpack_exports__parseBranches = __webpack_exports__.G;
 var __webpack_exports__pushBranches = __webpack_exports__.XB;
-export { __webpack_exports__branchCell as branchCell, __webpack_exports__main as main, __webpack_exports__parseBranches as parseBranches, __webpack_exports__pushBranches as pushBranches };
+var __webpack_exports__trainLine = __webpack_exports__.hR;
+var __webpack_exports__versionCell = __webpack_exports__.zu;
+export { __webpack_exports__branchCell as branchCell, __webpack_exports__main as main, __webpack_exports__parseBranches as parseBranches, __webpack_exports__pushBranches as pushBranches, __webpack_exports__trainLine as trainLine, __webpack_exports__versionCell as versionCell };

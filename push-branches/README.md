@@ -16,6 +16,10 @@ Pushes the branches that the workflow built, all at once or none, so that a fail
 | `base` | `GITHUB_SHA` | The commit that was pushed, to count the commits of the branches. |
 | `remote` | `origin` | The remote to push to. |
 | `title` | `GITHUB_REF_NAME` | The title of the summary. |
+| `milestone-url` | | The URL of the milestone of the release. The version of a branch links to it in the summary, unless it ends in `-SNAPSHOT`. |
+| `train` | | The release train that was used, `2026.11.19`. The summary has the line `Release train 2026.11.19` under its title. |
+| `train-url` | | The URL of the branch of that train: the line of the summary links to it. |
+| `train-status` | | Where the release is in the train, `not-joined`, `joined` or `ready` (the output `status` of `check-not-ready`). The line of the train says so: `Release train 2026.11.19: joined, not ready yet`. |
 | `path` | `.` | The directory of the git repository. |
 
 ## Secrets and permissions

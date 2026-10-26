@@ -65,6 +65,39 @@ export function branchCell(branch) {
   return `[${name}](${server}/${repository}/tree/${encoded})`;
 }
 
+/**
+ * The cell of a version in the summary: linked to the milestone of the release, if there
+ * is one. A snapshot version (-SNAPSHOT, -INTERNAL-SNAPSHOT) has no milestone, so it is
+ * plain text.
+ */
+export function versionCell(version, milestoneUrl) {
+  if (!milestoneUrl || version.endsWith("-SNAPSHOT")) {
+    return version;
+  }
+  return `[${version}](${milestoneUrl})`;
+}
+
+const TRAIN_STATUS = {
+  "not-joined": "not joined yet",
+  joined: "joined, not ready yet",
+  ready: "ready",
+};
+
+/**
+ * The line of the summary that links to the release train that was used: the text is the
+ * link, followed by where the release is in the train (the status of check-not-ready).
+ * Nothing without a train.
+ */
+export function trainLine(train, trainUrl, status) {
+  if (!train) {
+    return [];
+  }
+  const name = `Release train ${train}`;
+  const text = trainUrl ? `[${name}](${trainUrl})` : name;
+  const where = TRAIN_STATUS[status];
+  return [where ? `${text}: ${where}` : text, ""];
+}
+
 export async function main() {
   const base = core.getInput("base") || process.env.GITHUB_SHA;
   if (!base) {
@@ -85,11 +118,16 @@ export async function main() {
     [
       `### ${core.getInput("title") || process.env.GITHUB_REF_NAME || "Branches"}`,
       "",
+      ...trainLine(
+        core.getInput("train"),
+        core.getInput("train-url"),
+        core.getInput("train-status"),
+      ),
       table(
         ["Branch", "Version", "Commits on the pushed commit"],
         pushed.map(({ branch, version, commits }) => [
           branchCell(branch),
-          version,
+          versionCell(version, core.getInput("milestone-url")),
           commits,
         ]),
       ),

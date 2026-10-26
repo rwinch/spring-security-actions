@@ -28,6 +28,7 @@ The due date is the date of the due date of the milestone in UTC. GitHub keeps o
 | `found` | `true` if the milestone exists. `false` if it does not and `fail-if-missing` is `false`: then the two outputs below are empty. |
 | `release-version` | The title of the milestone: `7.0.1`, or `7.1.0-RC1`. |
 | `due-date` | Its due date, `YYYY-MM-DD` (UTC). Empty if it has none and `require-due-date` is `false`. |
+| `milestone-url` | The URL of the milestone on GitHub (`https://github.com/<owner>/<repo>/milestone/<number>`). Empty if it does not exist. |
 
 ## Fails when
 

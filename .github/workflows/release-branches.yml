@@ -71,6 +71,7 @@ jobs:
       snapshot-version: ${{ steps.plan.outputs.snapshot-version }}
       release-version: ${{ steps.release.outputs.release-version }}
       due-date: ${{ steps.release.outputs.due-date }}
+      milestone-url: ${{ steps.release.outputs.milestone-url }}
       project: ${{ steps.repositories.outputs.project }}
       oss-repository: ${{ steps.repositories.outputs.oss-repository }}
     steps:
@@ -153,6 +154,7 @@ jobs:
           date: ${{ needs.plan.outputs.due-date }}
           token: ${{ secrets.RELEASE_AUTOMATION_TOKEN }}
       - name: Stop if the release is ready already
+        id: not-ready
         if: steps.train.outputs.found == 'true'
         uses: spring-io/spring-security-actions/check-not-ready@538fffe880503809a715e25c13519275af05da69 # 0.0.9
         with:
@@ -160,6 +162,7 @@ jobs:
           project: ${{ needs.plan.outputs.project }}
           version: ${{ needs.plan.outputs.release-version }}
           train-branch: ${{ steps.train.outputs.branch }}
+          train-url: ${{ format('{0}/{1}/tree/{2}', github.server_url, inputs.release-train-repository || 'spring-io/release-train', steps.train.outputs.branch) }}
 
       # The snapshot branch: from the pushed commit. A hotfix has the release merged in, and
       # then the commercial license and headers. Then its version, and the dependencies that
@@ -250,6 +253,10 @@ jobs:
       - name: Push the branches
         uses: spring-io/spring-security-actions/push-branches@538fffe880503809a715e25c13519275af05da69 # 0.0.9
         with:
+          milestone-url: ${{ needs.plan.outputs.milestone-url }}
+          train: ${{ steps.train.outputs.found == 'true' && steps.train.outputs.branch || '' }}
+          train-url: ${{ steps.train.outputs.found == 'true' && format('{0}/{1}/tree/{2}', github.server_url, inputs.release-train-repository || 'spring-io/release-train', steps.train.outputs.branch) || '' }}
+          train-status: ${{ steps.not-ready.outputs.status }}
           branches: |
             release/${{ needs.plan.outputs.release-version }}=${{ needs.plan.outputs.release-version }}
             ${{ env.SNAPSHOT_BRANCH }}=${{ env.SNAPSHOT_VERSION }}

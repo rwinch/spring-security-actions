@@ -219,6 +219,42 @@ describe.each([["src/index.js"], ["dist/index.js"]])(
       );
     });
 
+    it("links the release to its milestone, and the train, but not the snapshot", async () => {
+      const { clone, main } = world();
+      const summary = path.join(
+        fs.mkdtempSync(path.join(os.tmpdir(), "summary-")),
+        "summary.md",
+      );
+      const result = await runAction(
+        entry,
+        {
+          branches: "release/1.0=1.0\nembargoed/1.0-SNAPSHOT=1.0-SNAPSHOT",
+          base: main,
+          path: clone,
+          title: "t",
+          "milestone-url": "https://github.com/acme/widgets/milestone/12",
+          train: "2026.11.19",
+          "train-status": "joined",
+          "train-url": "https://github.com/acme/train/tree/2026.11.19",
+        },
+        { GITHUB_STEP_SUMMARY: summary },
+      );
+      expect(result.code).toBe(0);
+      expect(fs.readFileSync(summary, "utf8")).toBe(
+        [
+          "### t",
+          "",
+          "[Release train 2026.11.19](https://github.com/acme/train/tree/2026.11.19): joined, not ready yet",
+          "",
+          "| Branch | Version | Commits on the pushed commit |",
+          "| --- | --- | --- |",
+          "| `release/1.0` | [1.0](https://github.com/acme/widgets/milestone/12) | 1 |",
+          "| `embargoed/1.0-SNAPSHOT` | 1.0-SNAPSHOT | 2 |",
+          "",
+        ].join("\n"),
+      );
+    });
+
     it("encodes the unusual characters of a branch in its link", async () => {
       const { clone, main } = world();
       git(clone, "branch", "release/a#b%c", main);

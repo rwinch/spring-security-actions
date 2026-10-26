@@ -7,6 +7,7 @@ Fails if the project has released the version in the release train already. A re
 - It reads `train.yml`, as `load-train` writes it (the `train-file` output), and looks for `releases.<project>."<version>".commit-hashes.ready`.
 - If it is there, it fails with the title `<project> <version> is ready`, and says what to do instead: set the version of `gradle.properties` to the next version in the OSS repository, and merge forward, so that the next push is for the next release.
 - A release that is in the train and not ready, or not in the train at all, is fine.
+- Before it fails, it adds a line to the summary of the step with the release train and `ready`, because the run builds nothing and has no other summary.
 
 ## Inputs
 
@@ -16,6 +17,13 @@ Fails if the project has released the version in the release train already. A re
 | `project` | required | The project id in the release train, for example `spring-security`. |
 | `version` | required | The version of the release, for example `7.0.1`. |
 | `train-branch` | no | The branch of the train, for the message. |
+| `train-url` | no | The URL of the branch of the train. A release that is ready is said so in the summary of the step, and its text links to it. |
+
+## Outputs
+
+| Output | Description |
+|---|---|
+| `status` | `not-joined` (not in the train), `joined` (in the train, not ready yet) or `ready` (the action fails). |
 
 ## Secrets and permissions
 

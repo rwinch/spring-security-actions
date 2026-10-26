@@ -15,6 +15,18 @@ inputs:
   title:
     description: "The title of the summary."
     required: false
+  milestone-url:
+    description: "The URL of the milestone of the release. The version of a branch that is not a snapshot (-SNAPSHOT) links to it in the summary."
+    required: false
+  train:
+    description: "The name of the release train that was used, for example 2026.11.19. The summary says so. Leave it out if none was."
+    required: false
+  train-url:
+    description: "The URL of the branch of that release train. The text of the summary line links to it."
+    required: false
+  train-status:
+    description: "Where the release is in the train: not-joined, joined or ready, the output status of check-not-ready. The summary says so after the train."
+    required: false
   path:
     description: "The directory of the git repository."
     required: false

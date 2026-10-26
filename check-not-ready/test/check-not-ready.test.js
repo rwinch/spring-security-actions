@@ -86,6 +86,36 @@ describe.each([["src/index.js"], ["dist/index.js"]])(
       );
     });
 
+    it("says in the summary that a release is ready, linked to the train", async () => {
+      const summary = path.join(
+        fs.mkdtempSync(path.join(os.tmpdir(), "summary-")),
+        "summary.md",
+      );
+      const result = await runAction(
+        entry,
+        {
+          ...inputs(train({ ready: "b" })),
+          "train-url": "https://github.com/acme/train/tree/2026.11.19",
+        },
+        { GITHUB_STEP_SUMMARY: summary },
+      );
+      expect(result.code).toBe(1);
+      expect(result.outputs).toEqual({ status: "ready" });
+      expect(fs.readFileSync(summary, "utf8")).toBe(
+        "[Release train 2026.11.19](https://github.com/acme/train/tree/2026.11.19): ready\n\n",
+      );
+    });
+
+    it("has the status joined for a release that is not ready", async () => {
+      const result = await runAction(entry, inputs(train({ joined: "a" })));
+      expect(result.outputs).toEqual({ status: "joined" });
+    });
+
+    it("has the status not-joined for a release that is not in the train", async () => {
+      const result = await runAction(entry, inputs({}));
+      expect(result.outputs).toEqual({ status: "not-joined" });
+    });
+
     it("succeeds for a release that is not ready", async () => {
       const result = await runAction(entry, inputs(train({ joined: "a" })));
       expect(result.code).toBe(0);

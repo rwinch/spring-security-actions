@@ -45,7 +45,7 @@ describe("run", () => {
 
   describe("a version that does not end with .0", () => {
     it("is released as itself, on the due date of its milestone", async () => {
-      expect(await release("7.0.1-SNAPSHOT")).toEqual({
+      expect(await release("7.0.1-SNAPSHOT")).toMatchObject({
         found: true,
         releaseVersion: "7.0.1",
         dueDate: "2026-11-19",
@@ -53,7 +53,7 @@ describe("run", () => {
     });
 
     it("releases a hotfix as itself", async () => {
-      expect(await release("7.0.1.1-SNAPSHOT")).toEqual({
+      expect(await release("7.0.1.1-SNAPSHOT")).toMatchObject({
         found: true,
         releaseVersion: "7.0.1.1",
         dueDate: "2026-11-19",
@@ -61,7 +61,7 @@ describe("run", () => {
     });
 
     it("finds a closed milestone", async () => {
-      expect(await release("6.5.5-SNAPSHOT")).toEqual({
+      expect(await release("6.5.5-SNAPSHOT")).toMatchObject({
         found: true,
         releaseVersion: "6.5.5",
         dueDate: "2026-08-01",
@@ -87,7 +87,7 @@ describe("run", () => {
   describe("a version that ends with .0", () => {
     it("is released as the open milestone with the earliest due date", async () => {
       // 7.1.0-RC1 is due before 7.1.0. 7.1.0-M3 is closed, and 7.1.01 and 7.1.0.1 are other versions
-      expect(await release("7.1.0-SNAPSHOT")).toEqual({
+      expect(await release("7.1.0-SNAPSHOT")).toMatchObject({
         found: true,
         releaseVersion: "7.1.0-RC1",
         dueDate: "2026-11-19",
@@ -104,7 +104,7 @@ describe("run", () => {
           { snapshotVersion: "7.1.0-SNAPSHOT", milestoneRepository: REPO },
           { octokit: createOctokit({ baseUrl: other.url }) },
         );
-        expect(result).toEqual({
+        expect(result).toMatchObject({
           found: true,
           releaseVersion: "7.1.0",
           dueDate: "2026-12-17",
@@ -116,7 +116,7 @@ describe("run", () => {
 
     it("goes by the due date and not by the name", async () => {
       // 7.3.0-RC1 is due before 7.3.0-M1
-      expect(await release("7.3.0-SNAPSHOT")).toEqual({
+      expect(await release("7.3.0-SNAPSHOT")).toMatchObject({
         found: true,
         releaseVersion: "7.3.0-RC1",
         dueDate: "2027-02-01",
@@ -184,7 +184,7 @@ describe("run", () => {
     it("is empty if it has none and it is not required", async () => {
       expect(
         await release("7.2.0-SNAPSHOT", { requireDueDate: false }),
-      ).toEqual({
+      ).toMatchObject({
         found: true,
         releaseVersion: "7.2.0-M1",
         dueDate: "",
@@ -192,7 +192,7 @@ describe("run", () => {
     });
 
     it("is the date in UTC, late in the day too", async () => {
-      expect(await release("7.5.0-SNAPSHOT")).toEqual({
+      expect(await release("7.5.0-SNAPSHOT")).toMatchObject({
         found: true,
         releaseVersion: "7.5.0-M1",
         dueDate: "2027-06-01",
@@ -270,6 +270,7 @@ describe.each([["src/index.js"], ["dist/index.js"]])(
         found: "true",
         "release-version": "7.1.0-RC1",
         "due-date": "2026-11-19",
+        "milestone-url": `https://github.com/${REPO}/milestone/8`,
       });
     });
 
@@ -286,6 +287,7 @@ describe.each([["src/index.js"], ["dist/index.js"]])(
         found: "true",
         "release-version": "7.2.0-M1",
         "due-date": "",
+        "milestone-url": `https://github.com/${REPO}/milestone/12`,
       });
     });
 
@@ -344,6 +346,7 @@ describe.each([["src/index.js"], ["dist/index.js"]])(
           found: "false",
           "release-version": "",
           "due-date": "",
+          "milestone-url": "",
         });
       },
     );

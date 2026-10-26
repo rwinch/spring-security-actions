@@ -36721,7 +36721,12 @@ async function run(
       `The milestone ${milestone.title} of ${milestoneRepository} has no due date (set require-due-date to false to allow that)`,
     );
   }
-  return { found: true, releaseVersion: milestone.title, dueDate };
+  return {
+    found: true,
+    releaseVersion: milestone.title,
+    dueDate,
+    milestoneUrl: milestone.html_url ?? "",
+  };
 }
 
 async function main() {
@@ -36751,15 +36756,17 @@ async function main() {
     setOutput("found", "false");
     setOutput("release-version", "");
     setOutput("due-date", "");
+    setOutput("milestone-url", "");
     return;
   }
-  const { releaseVersion, dueDate } = result;
+  const { releaseVersion, dueDate, milestoneUrl } = result;
   info(
     `${inputs.snapshotVersion} is released as ${releaseVersion}, due ${dueDate || "on no date"}`,
   );
   setOutput("found", "true");
   setOutput("release-version", releaseVersion);
   setOutput("due-date", dueDate);
+  setOutput("milestone-url", milestoneUrl);
 }
 
 if (isMain(import.meta.url)) {
