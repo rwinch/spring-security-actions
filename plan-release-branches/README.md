@@ -2,6 +2,8 @@
 
 Decides what the push of an embargoed branch builds. It is the first thing that the release workflow does, and it only reads its two inputs: nothing is checked out or changed.
 
+A long-term support embargoed branch, `embargoed/lts/7.0.x` (`7.0.1-SNAPSHOT`), is commercial: it is merged into other long-term support branches only, and releases its own version, so only `release/7.0.1` is built, with no snapshot branch. Its `kind` is `lts`, `deployment-destination` is `spring_enterprise`, and `hotfix`, `hotfix-of`, `frozen-branch`, `snapshot-branch` and `snapshot-version` are empty (`hotfix` is `false`).
+
 ## What it decides
 
 |  | A frozen embargoed branch, `embargoed/frozen/7.0.x` (`7.0.1-SNAPSHOT`) | An active embargoed branch, `embargoed/active/7.0.x` (`7.0.1-SNAPSHOT`) |

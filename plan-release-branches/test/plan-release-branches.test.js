@@ -47,6 +47,23 @@ describe("plan", () => {
     });
   });
 
+  it("builds only the release for a long-term support embargoed branch, with no snapshot", () => {
+    expect(
+      plan({ refName: "embargoed/lts/5.8.x", version: "5.8.30-SNAPSHOT" }),
+    ).toEqual({
+      release: true,
+      kind: "lts",
+      baseVersion: "5.8.30-SNAPSHOT",
+      hotfix: false,
+      hotfixOf: "",
+      hotfixOfVersion: "",
+      deploymentDestination: "spring_enterprise",
+      frozenBranch: "",
+      snapshotBranch: "",
+      snapshotVersion: "",
+    });
+  });
+
   it("builds nothing for an active embargoed branch whose version is not a patch release", () => {
     expect(
       plan({ refName: "embargoed/active/main", version: "7.1.0-SNAPSHOT" }),
@@ -114,6 +131,12 @@ describe("plan", () => {
       "embargoed/active/7.0.x",
       "7.0.1.1-SNAPSHOT",
       "a hotfix already",
+    ],
+    [
+      "a hotfix on a long-term support embargoed branch",
+      "embargoed/lts/7.0.x",
+      "7.0.1.1-SNAPSHOT",
+      "a long-term support branch releases its own version",
     ],
     [
       "an embargoed branch with nothing under it",

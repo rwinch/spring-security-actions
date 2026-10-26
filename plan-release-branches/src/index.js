@@ -6,13 +6,13 @@ const HOTFIX = /^\d+\.\d+\.\d+\.\d+$/;
 
 /**
  * Decides what the push of an embargoed branch builds, from the branch that was pushed
- * (embargoed/frozen/<generation> or embargoed/active/<generation>) and the version of
+ * (embargoed/frozen/<generation>, embargoed/active/<generation> or embargoed/lts/<generation>) and the version of
  * gradle.properties on it (<version>-SNAPSHOT). It returns:
  *
  *   release           false if there is nothing to build: a version that ends with .0 on an
  *                     active embargoed branch is not a patch release, so it has no hotfix.
  *                     Everything else below is only there if it is true
- *   kind              frozen or active
+ *   kind              frozen, active or lts
  *   baseVersion       the snapshot version that the release version is worked out from: the
  *                     version of the frozen branch (7.0.1-SNAPSHOT), or the hotfix version
  *                     of an active one (7.0.1.1-SNAPSHOT)
@@ -24,7 +24,7 @@ const HOTFIX = /^\d+\.\d+\.\d+\.\d+$/;
  *   deploymentDestination
  *                     where the release is deployed to, as the release train names it:
  *                     maven_central for a frozen embargoed branch, spring_enterprise for an
- *                     active one (a hotfix is commercial)
+ *                     active one (a hotfix is commercial) or a long-term support one
  *   frozenBranch      for an active embargoed branch, the frozen embargoed branch of the same
  *                     generation, which a hotfix is only built for if the active one differs
  *                     from it: embargoed/frozen/7.0.x for embargoed/active/7.0.x. Empty for a
@@ -43,9 +43,11 @@ export function plan({ refName, version }) {
     kind = "frozen";
   } else if (refName.startsWith("embargoed/active/")) {
     kind = "active";
+  } else if (refName.startsWith("embargoed/lts/")) {
+    kind = "lts";
   } else {
     throw new Error(
-      `${refName} is not an embargoed branch: expected embargoed/frozen/* or embargoed/active/*`,
+      `${refName} is not an embargoed branch: expected embargoed/frozen/*, embargoed/active/* or embargoed/lts/*`,
     );
   }
   const match = SNAPSHOT_VERSION.exec(version);
@@ -55,6 +57,28 @@ export function plan({ refName, version }) {
     );
   }
   const plain = match[1];
+
+  if (kind === "lts") {
+    if (HOTFIX.test(plain)) {
+      throw new Error(
+        `${refName} has the version ${version}, a hotfix: only an active embargoed branch has one, and a long-term support branch releases its own version`,
+      );
+    }
+    // Only the release branch is built: a long-term support branch is commercial, and is
+    // merged into other long-term support branches only, so its release needs no snapshot
+    return {
+      release: true,
+      kind,
+      baseVersion: version,
+      hotfix: false,
+      hotfixOf: "",
+      hotfixOfVersion: "",
+      deploymentDestination: "spring_enterprise",
+      frozenBranch: "",
+      snapshotBranch: "",
+      snapshotVersion: "",
+    };
+  }
 
   if (kind === "frozen") {
     if (HOTFIX.test(plain)) {
@@ -119,6 +143,10 @@ export async function main() {
   if (!result.release) {
     core.info(
       `${refName} has the version ${version}, which is not a patch release: it has no hotfix, so there is nothing to build`,
+    );
+  } else if (result.kind === "lts") {
+    core.info(
+      `${refName} is a long-term support embargoed branch: the release of ${version}, with no snapshot`,
     );
   } else if (result.kind === "frozen") {
     core.info(
