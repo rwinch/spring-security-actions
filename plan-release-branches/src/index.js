@@ -20,6 +20,11 @@ const HOTFIX = /^\d+\.\d+\.\d+\.\d+$/;
  *                     of the dependencies are preferred
  *   hotfixOf          for a hotfix, the release branch that it fixes and is built on:
  *                     release/7.0.1 for 7.0.1-SNAPSHOT. Empty for a frozen embargoed branch
+ *   hotfixOfVersion   the version of that release: 7.0.1. Empty for a frozen embargoed branch
+ *   deploymentDestination
+ *                     where the release is deployed to, as the release train names it:
+ *                     maven_central for a frozen embargoed branch, spring_enterprise for an
+ *                     active one (a hotfix is commercial)
  *   frozenBranch      for an active embargoed branch, the frozen embargoed branch of the same
  *                     generation, which a hotfix is only built for if the active one differs
  *                     from it: embargoed/frozen/7.0.x for embargoed/active/7.0.x. Empty for a
@@ -63,6 +68,8 @@ export function plan({ refName, version }) {
       baseVersion: version,
       hotfix: false,
       hotfixOf: "",
+      hotfixOfVersion: "",
+      deploymentDestination: "maven_central",
       frozenBranch: "",
       snapshotBranch: `embargoed/${plain}-INTERNAL-SNAPSHOT`,
       snapshotVersion: `${plain}-INTERNAL-SNAPSHOT`,
@@ -84,6 +91,8 @@ export function plan({ refName, version }) {
     baseVersion: `${hotfix}-SNAPSHOT`,
     hotfix: true,
     hotfixOf: `release/${plain}`,
+    hotfixOfVersion: plain,
+    deploymentDestination: "spring_enterprise",
     frozenBranch: refName.replace(/^embargoed\/active\//, "embargoed/frozen/"),
     snapshotBranch: `embargoed/${hotfix}-SNAPSHOT`,
     snapshotVersion: `${hotfix}-SNAPSHOT`,
@@ -96,6 +105,8 @@ const OUTPUTS = {
   baseVersion: "base-version",
   hotfix: "hotfix",
   hotfixOf: "hotfix-of",
+  hotfixOfVersion: "hotfix-of-version",
+  deploymentDestination: "deployment-destination",
   frozenBranch: "frozen-branch",
   snapshotBranch: "snapshot-branch",
   snapshotVersion: "snapshot-version",

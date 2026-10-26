@@ -1,0 +1,29 @@
+name: "align-milestone"
+description: "Sets the due date of the milestone of a hotfix to the commercial general availability of its release train"
+
+inputs:
+  train-file:
+    description: "The file with `train.yml` as JSON, the output `train-file` of `load-train`."
+    required: true
+  train-branch:
+    description: "The branch of the train, for the message."
+    required: false
+  milestone-repository:
+    description: "The repository (owner/repo) with the milestone of the hotfix, the commercial repository."
+    required: true
+  milestone:
+    description: "The title of the milestone, for example `7.0.1.1`."
+    required: true
+  token:
+    description: "A token that may write the milestones of the repository."
+    required: true
+
+outputs:
+  due-date:
+    description: "The due date of the milestone after the action, YYYY-MM-DD (the commercial general availability of the train)."
+  changed:
+    description: "true if the due date of the milestone was changed."
+
+runs:
+  using: "node24"
+  main: "dist/index.js"
