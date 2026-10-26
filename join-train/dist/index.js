@@ -28624,8 +28624,9 @@ var __webpack_exports__ = {};
 
 // EXPORTS
 __nccwpck_require__.d(__webpack_exports__, {
-  i: () => (/* binding */ main),
-  e: () => (/* binding */ run)
+  iW: () => (/* binding */ main),
+  eF: () => (/* binding */ run),
+  dC: () => (/* binding */ summaryLine)
 });
 
 ;// CONCATENATED MODULE: external "node:fs"
@@ -31481,7 +31482,7 @@ function warning(message, properties = {}) {
  * @param properties optional properties to add to the annotation.
  */
 function notice(message, properties = {}) {
-    issueCommand('notice', toCommandProperties(properties), message instanceof Error ? message.toString() : message);
+    command_issueCommand('notice', utils_toCommandProperties(properties), message instanceof Error ? message.toString() : message);
 }
 /**
  * Writes info to log with console.log.
@@ -36658,7 +36659,7 @@ async function run(
   } catch (error) {
     if (error.status === 403 || error.status === 404) {
       throw new Error(
-        `Could not dispatch Join in ${trainRepository}: the token needs Actions: write on it (${error.status} ${error.message})`,
+        `Could not dispatch Join in ${trainRepository}: the token needs Actions: Read and write on it (a fine-grained token) or the scope repo (a classic one) (${error.status} ${error.message})`,
       );
     }
     throw error;
@@ -36666,11 +36667,51 @@ async function run(
   return { joined: true };
 }
 
+/**
+ * The line of the summary for the outcome: joined now, joined before, or not joined
+ * because the train has not been created. The name of the train is a link if it has a URL.
+ */
+function summaryLine({
+  outcome,
+  trainBranch,
+  trainUrl,
+  releaseBranch,
+  destination,
+}) {
+  const name = `release train ${trainBranch}`;
+  const text = trainUrl ? `[${name}](${trainUrl})` : name;
+  switch (outcome) {
+    case "joined":
+      return `Joined the ${text}: dispatched Join of ${releaseBranch} (${destination})`;
+    case "already-joined":
+      return `Already in the ${text}: not joined again`;
+    default:
+      return `Not joined: the ${name} has not been created`;
+  }
+}
+
 async function main() {
   const trainRepository = getInput("release-train-repository", {
     required: true,
   });
   const trainBranch = getInput("train-branch", { required: true });
+  const trainFound = getInput("train-found") !== "false";
+  const releaseBranch = getInput("release-branch", { required: true });
+  const destination = getInput("deployment-destination", {
+    required: true,
+  });
+  const trainUrl = getInput("train-url");
+  if (!trainFound) {
+    notice(
+      `The release train ${trainBranch} has not been created, so the release did not join it`,
+      {
+        title: "Not joined",
+      },
+    );
+    setOutput("joined", "false");
+    addSummary(`${summaryLine({ outcome: "no-train", trainBranch })}\n`);
+    return;
+  }
   const file = getInput("train-file", { required: true });
   let train;
   try {
@@ -36682,13 +36723,6 @@ async function main() {
   }
   const project = getInput("project", { required: true });
   const version = getInput("version", { required: true });
-  const releaseBranch = getInput("release-branch", { required: true });
-  const destination = getInput("deployment-destination", {
-    required: true,
-  });
-  const trainUrl = getInput("train-url");
-  const trainName = `release train ${trainBranch}`;
-  const trainText = trainUrl ? `[${trainName}](${trainUrl})` : trainName;
   const octokit = createOctokit({ token: getInput("token") });
   const result = await run(
     {
@@ -36707,21 +36741,22 @@ async function main() {
     { octokit },
   );
   setOutput("joined", String(result.joined));
-  if (result.joined) {
-    info(`Joined ${project} ${version} to the ${trainName}`);
-    addSummary(
-      `Joined the ${trainText}: dispatched Join of ${releaseBranch} (${destination})\n`,
-    );
-  } else {
-    info(`${project} ${version} is in the ${trainName} already`);
-    addSummary(`Already in the ${trainText}: not joined again\n`);
-  }
+  const outcome = result.joined ? "joined" : "already-joined";
+  info(
+    result.joined
+      ? `Joined ${project} ${version} to the release train ${trainBranch}`
+      : `${project} ${version} is in the release train ${trainBranch} already`,
+  );
+  addSummary(
+    `${summaryLine({ outcome, trainBranch, trainUrl, releaseBranch, destination })}\n`,
+  );
 }
 
 if (isMain(import.meta.url)) {
   execute(main);
 }
 
-var __webpack_exports__main = __webpack_exports__.i;
-var __webpack_exports__run = __webpack_exports__.e;
-export { __webpack_exports__main as main, __webpack_exports__run as run };
+var __webpack_exports__main = __webpack_exports__.iW;
+var __webpack_exports__run = __webpack_exports__.eF;
+var __webpack_exports__summaryLine = __webpack_exports__.dC;
+export { __webpack_exports__main as main, __webpack_exports__run as run, __webpack_exports__summaryLine as summaryLine };

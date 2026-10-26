@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { run } from "../src/index.js";
+import { run, summaryLine } from "../src/index.js";
 
 const base = {
   trainRepository: "spring-io/release-train",
@@ -71,7 +71,26 @@ describe("join-train", () => {
       Object.assign(new Error("Resource not accessible"), { status: 403 }),
     );
     await expect(run({ ...base, train: {} }, { octokit })).rejects.toThrow(
-      "Could not dispatch Join in spring-io/release-train: the token needs Actions: write on it (403 Resource not accessible)",
+      "Could not dispatch Join in spring-io/release-train: the token needs Actions: Read and write on it (a fine-grained token) or the scope repo (a classic one) (403 Resource not accessible)",
+    );
+  });
+
+  it("says in the summary what happened, with a link to the train if it has one", () => {
+    const line = {
+      trainBranch: "2026.11.19",
+      releaseBranch: "release/7.0.1",
+      destination: "maven_central",
+    };
+    expect(
+      summaryLine({ ...line, outcome: "joined", trainUrl: "https://x/t" }),
+    ).toBe(
+      "Joined the [release train 2026.11.19](https://x/t): dispatched Join of release/7.0.1 (maven_central)",
+    );
+    expect(summaryLine({ ...line, outcome: "already-joined" })).toBe(
+      "Already in the release train 2026.11.19: not joined again",
+    );
+    expect(summaryLine({ ...line, outcome: "no-train" })).toBe(
+      "Not joined: the release train 2026.11.19 has not been created",
     );
   });
 });

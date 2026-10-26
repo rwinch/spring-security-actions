@@ -51,7 +51,7 @@ export async function run(
   } catch (error) {
     if (error.status === 403 || error.status === 404) {
       throw new Error(
-        `Could not dispatch Join in ${trainRepository}: the token needs Actions: write on it (${error.status} ${error.message})`,
+        `Could not dispatch Join in ${trainRepository}: the token needs Actions: Read and write on it (a fine-grained token) or the scope repo (a classic one) (${error.status} ${error.message})`,
       );
     }
     throw error;
@@ -59,11 +59,51 @@ export async function run(
   return { joined: true };
 }
 
+/**
+ * The line of the summary for the outcome: joined now, joined before, or not joined
+ * because the train has not been created. The name of the train is a link if it has a URL.
+ */
+export function summaryLine({
+  outcome,
+  trainBranch,
+  trainUrl,
+  releaseBranch,
+  destination,
+}) {
+  const name = `release train ${trainBranch}`;
+  const text = trainUrl ? `[${name}](${trainUrl})` : name;
+  switch (outcome) {
+    case "joined":
+      return `Joined the ${text}: dispatched Join of ${releaseBranch} (${destination})`;
+    case "already-joined":
+      return `Already in the ${text}: not joined again`;
+    default:
+      return `Not joined: the ${name} has not been created`;
+  }
+}
+
 export async function main() {
   const trainRepository = core.getInput("release-train-repository", {
     required: true,
   });
   const trainBranch = core.getInput("train-branch", { required: true });
+  const trainFound = core.getInput("train-found") !== "false";
+  const releaseBranch = core.getInput("release-branch", { required: true });
+  const destination = core.getInput("deployment-destination", {
+    required: true,
+  });
+  const trainUrl = core.getInput("train-url");
+  if (!trainFound) {
+    core.notice(
+      `The release train ${trainBranch} has not been created, so the release did not join it`,
+      {
+        title: "Not joined",
+      },
+    );
+    core.setOutput("joined", "false");
+    addSummary(`${summaryLine({ outcome: "no-train", trainBranch })}\n`);
+    return;
+  }
   const file = core.getInput("train-file", { required: true });
   let train;
   try {
@@ -75,13 +115,6 @@ export async function main() {
   }
   const project = core.getInput("project", { required: true });
   const version = core.getInput("version", { required: true });
-  const releaseBranch = core.getInput("release-branch", { required: true });
-  const destination = core.getInput("deployment-destination", {
-    required: true,
-  });
-  const trainUrl = core.getInput("train-url");
-  const trainName = `release train ${trainBranch}`;
-  const trainText = trainUrl ? `[${trainName}](${trainUrl})` : trainName;
   const octokit = createOctokit({ token: core.getInput("token") });
   const result = await run(
     {
@@ -100,15 +133,15 @@ export async function main() {
     { octokit },
   );
   core.setOutput("joined", String(result.joined));
-  if (result.joined) {
-    core.info(`Joined ${project} ${version} to the ${trainName}`);
-    addSummary(
-      `Joined the ${trainText}: dispatched Join of ${releaseBranch} (${destination})\n`,
-    );
-  } else {
-    core.info(`${project} ${version} is in the ${trainName} already`);
-    addSummary(`Already in the ${trainText}: not joined again\n`);
-  }
+  const outcome = result.joined ? "joined" : "already-joined";
+  core.info(
+    result.joined
+      ? `Joined ${project} ${version} to the release train ${trainBranch}`
+      : `${project} ${version} is in the release train ${trainBranch} already`,
+  );
+  addSummary(
+    `${summaryLine({ outcome, trainBranch, trainUrl, releaseBranch, destination })}\n`,
+  );
 }
 
 if (isMain(import.meta.url)) {

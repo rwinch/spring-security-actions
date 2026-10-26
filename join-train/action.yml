@@ -8,9 +8,13 @@ inputs:
   train-branch:
     description: "The branch of the train, for example 2026.11.19, the output `branch` of `load-train`."
     required: true
+  train-found:
+    description: "Whether the train exists, the output `found` of `load-train`. If it is `false`, nothing is joined, and the summary says that the train has not been created."
+    required: false
+    default: "true"
   train-file:
-    description: "The file with `train.yml` as JSON, the output `train-file` of `load-train`. A release that has joined in it is not joined again."
-    required: true
+    description: "The file with `train.yml` as JSON, the output `train-file` of `load-train`. A release that has joined in it is not joined again. Required if the train exists."
+    required: false
   train-url:
     description: "The URL of the branch of the train, which the summary links to."
     required: false
