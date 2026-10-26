@@ -10,12 +10,14 @@ They are written in JavaScript (Node 24), and every one of them is **self contai
 
 | Action | What it does |
 |---|---|
+| [`align-milestone`](align-milestone/README.md) | Sets the due date of the milestone of a hotfix to the commercial general availability of its release train. |
 | [`apply-commercial-license`](apply-commercial-license/README.md) | Changes a repository to the commercial license: headers and `LICENSE.txt`, for a hotfix. |
 | [`check-not-ready`](check-not-ready/README.md) | Fails if the release train has the release as ready already. |
 | [`compare-branches`](compare-branches/README.md) | Whether a branch has changes that another branch lacks: a hotfix is only built for an active embargoed branch that differs from the frozen one. |
 | [`compute-release-version`](compute-release-version/README.md) | The release version of a snapshot version, and its due date, from the milestones of a repository. |
 | [`ensure-dependency-issues`](ensure-dependency-issues/README.md) | An issue for every dependency update, in a milestone. It makes the ones that are missing. |
 | [`git-identity`](git-identity/README.md) | Sets who commits: `github-actions[bot]` by default. |
+| [`join-train`](join-train/README.md) | Joins a release to the release train, by running the Join workflow of the release train repository. |
 | [`load-train`](load-train/README.md) | Reads the release train of a date. |
 | [`map-train-versions`](map-train-versions/README.md) | Which versions of a version catalog the release train asks to change, and to what. |
 | [`merge-release`](merge-release/README.md) | Merges the release into the branch of its hotfix. |

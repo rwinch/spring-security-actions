@@ -14,6 +14,18 @@ inputs:
   train-branch:
     description: "The branch of the train, for the message."
     required: false
+  train-url:
+    description: "The URL of the branch of the train. If the release is ready, the summary of the step says so, and the text of its line links to it."
+    required: false
+  train-state-url:
+    description: "The URL of the line of train.yml with the state of the train. The state links to it in that summary."
+    required: false
+
+outputs:
+  train-state:
+    description: "The state of the train itself (the state at the top of train.yml): pending, started, tested, staged, promoting, promoted, paused. Empty if it has none"
+  status:
+    description: "Where the release is in the train: not-joined, joined (and not ready yet) or ready. A ready release fails the action, so it is only seen as ready in the summary"
 
 runs:
   using: "node24"

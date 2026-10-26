@@ -103,7 +103,12 @@ export async function startFakeGitHub({
     if (rest === "/milestones" && request.method === "GET") {
       const state = url.searchParams.get("state") ?? "open";
       return page(
-        allMilestones.filter((m) => state === "all" || m.state === state),
+        allMilestones
+          .filter((m) => state === "all" || m.state === state)
+          .map((m) => ({
+            ...m,
+            html_url: `https://github.com/${owner}/${repo}/milestone/${m.number}`,
+          })),
       );
     }
 

@@ -1,0 +1,49 @@
+name: "join-train"
+description: "Joins a release of the project to the release train, by running the Join workflow of the release train repository on the branch of the train"
+
+inputs:
+  release-train-repository:
+    description: "The release train repository, owner/repo."
+    required: true
+  train-branch:
+    description: "The branch of the train, for example 2026.11.19, the output `branch` of `load-train`."
+    required: true
+  train-found:
+    description: "Whether the train exists, the output `found` of `load-train`. If it is `false`, nothing is joined, and the summary says that the train has not been created."
+    required: false
+    default: "true"
+  train-file:
+    description: "The file with `train.yml` as JSON, the output `train-file` of `load-train`. A release that has joined in it is not joined again. Required if the train exists."
+    required: false
+  train-url:
+    description: "The URL of the branch of the train, which the summary links to."
+    required: false
+  project:
+    description: "The project id in the release train, for example `spring-security`."
+    required: true
+  version:
+    description: "The version of the release, for example `7.0.1`."
+    required: true
+  release-repository:
+    description: "The repository (owner/repo) of the release branch, for example `spring-projects/spring-security-commercial`."
+    required: true
+  release-branch:
+    description: "The release branch that joins, for example `release/7.0.1`. It must exist."
+    required: true
+  deployment-destination:
+    description: "Where the release is deployed to: `maven_central` or `spring_enterprise`."
+    required: true
+  commit-hash:
+    description: "The hash of the last commit of the release branch. Optional: the train reads it from the branch if it is not given."
+    required: false
+  token:
+    description: "A token that may run workflows of the release train repository (Actions: write)."
+    required: true
+
+outputs:
+  joined:
+    description: "true if the Join workflow was run, false if the release had joined already."
+
+runs:
+  using: "node24"
+  main: "dist/index.js"

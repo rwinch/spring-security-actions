@@ -25,6 +25,8 @@ outputs:
     description: "The version the snapshot version is released as, the title of its milestone (for example 7.0.1 or 7.1.0-RC1)"
   due-date:
     description: "The due date of that milestone, as a date in UTC (YYYY-MM-DD). Empty if it has none and require-due-date is false"
+  milestone-url:
+    description: "The URL of that milestone on GitHub. Empty if it does not exist"
   found:
     description: "true if the milestone exists, false if it does not and fail-if-missing is false. Then release-version and due-date are empty"
 

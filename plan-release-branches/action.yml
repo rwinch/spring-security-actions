@@ -13,19 +13,23 @@ outputs:
   release:
     description: "false if there is nothing to build (an active embargoed branch whose version ends with .0 has no hotfix), else true. The other outputs are only there if it is true, and kind is always there"
   kind:
-    description: "frozen or active"
+    description: "frozen, active or lts"
   base-version:
-    description: "The snapshot version that the release version is worked out from: the version of a frozen embargoed branch (7.0.1-SNAPSHOT), or the hotfix version of an active one (7.0.1.1-SNAPSHOT)"
+    description: "The snapshot version that the release version is worked out from: the version of a frozen embargoed branch (7.0.1-SNAPSHOT), or the hotfix version of an active one (7.0.1.1-SNAPSHOT), or the version of a long-term support one (7.0.1-SNAPSHOT)"
   hotfix:
     description: "true for an active embargoed branch: a hotfix is built, and hotfix versions of the dependencies are preferred"
   hotfix-of:
     description: "For a hotfix, the release branch that it fixes and is built on (release/7.0.1). Empty for a frozen embargoed branch"
+  hotfix-of-version:
+    description: "For a hotfix, the version of the release that it fixes (7.0.1), which is the milestone of the OSS repository that decides its release train. Empty for a frozen embargoed branch"
+  deployment-destination:
+    description: "Where the release is deployed to, as the release train names it: maven_central for a frozen embargoed branch, spring_enterprise for an active one"
   frozen-branch:
     description: "For an active embargoed branch, the frozen embargoed branch of the same generation (embargoed/frozen/7.0.x for embargoed/active/7.0.x): a hotfix is only built if the active one has changes that it lacks. Empty for a frozen embargoed branch"
   snapshot-branch:
-    description: "The snapshot branch: embargoed/7.0.1-INTERNAL-SNAPSHOT for a frozen embargoed branch, embargoed/7.0.1.1-SNAPSHOT for a hotfix"
+    description: "Empty for a long-term support embargoed branch, which has none. The snapshot branch: embargoed/7.0.1-INTERNAL-SNAPSHOT for a frozen embargoed branch, embargoed/7.0.1.1-SNAPSHOT for a hotfix"
   snapshot-version:
-    description: "The version of the snapshot branch: 7.0.1-INTERNAL-SNAPSHOT, or 7.0.1.1-SNAPSHOT. A snapshot never carries a milestone or a release candidate"
+    description: "Empty for a long-term support embargoed branch. The version of the snapshot branch: 7.0.1-INTERNAL-SNAPSHOT, or 7.0.1.1-SNAPSHOT. A snapshot never carries a milestone or a release candidate"
 
 runs:
   using: "node24"

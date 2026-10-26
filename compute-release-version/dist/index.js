@@ -28626,6 +28626,7 @@ var __webpack_exports__ = {};
 __nccwpck_require__.d(__webpack_exports__, {
   RH: () => (/* binding */ candidateOf),
   iW: () => (/* binding */ main),
+  WO: () => (/* binding */ noTrainSummary),
   eF: () => (/* binding */ run)
 });
 
@@ -36599,7 +36600,33 @@ async function execute(action) {
   }
 }
 
+;// CONCATENATED MODULE: ./src/summary.js
+
+
+
+/**
+ * Adds markdown to the summary of the step (the file named by GITHUB_STEP_SUMMARY). Run
+ * locally, where there is no such file, it prints the markdown instead.
+ */
+function addSummary(markdown) {
+  const file = process.env.GITHUB_STEP_SUMMARY;
+  if (file) {
+    external_node_fs_namespaceObject.appendFileSync(file, `${markdown}\n`);
+  } else {
+    info(markdown);
+  }
+}
+
+/** A markdown table from a header and rows, each a list of cells. */
+function table(header, rows) {
+  const line = (cells) => `| ${cells.join(" | ")} |`;
+  return [line(header), line(header.map(() => "---")), ...rows.map(line)].join(
+    "\n",
+  );
+}
+
 ;// CONCATENATED MODULE: ./src/index.js
+
 
 
 
@@ -36620,6 +36647,53 @@ function listMilestones(octokit, repository, state) {
       per_page: 100,
     }),
   );
+}
+
+/** The milestone exists, but has no due date: it carries what the summary links to. */
+class NoDueDateError extends Error {
+  constructor(message, milestone) {
+    super(message);
+    this.milestone = milestone;
+  }
+}
+
+const SERVER = () =>
+  (process.env.GITHUB_SERVER_URL || "https://github.com").replace(/\/+$/, "");
+
+const TRAIN_HELP =
+  "a due date that matches a release train: the name of its branch in the release train repository is its date (the train 2026.11.19 is due 2026-11-19)";
+
+/**
+ * The summary for a release that cannot join a release train yet, because its milestone
+ * does not exist or has no due date: what to create or change, with links to do it. A
+ * hotfix (7.0.1.1) is released from the commercial repository, so its milestone is
+ * created there, and the summary names the OSS version it is a hotfix of.
+ */
+function noTrainSummary({ candidate, repository, milestone }) {
+  const hotfix = /^\d+\.\d+\.\d+\.\d+$/.test(candidate)
+    ? candidate.slice(0, candidate.lastIndexOf("."))
+    : undefined;
+  const lines = [`### ${candidate} is not in a release train`, ""];
+  if (milestone) {
+    lines.push(
+      `The milestone ${candidate} of ${repository} has no due date.`,
+      "",
+      `To add it to a release train, [set its due date](${milestone.html_url}/edit) to ${TRAIN_HELP}, and run the workflow again.`,
+    );
+  } else {
+    lines.push(
+      `${repository} has no milestone ${candidate}.`,
+      "",
+      `To add it to a release train, [create the milestone ${candidate}](${SERVER()}/${repository}/milestones/new) in ${repository} with ${TRAIN_HELP}, and run the workflow again.`,
+    );
+  }
+  if (hotfix) {
+    lines.push(
+      "",
+      `${candidate} is a hotfix of the OSS version ${hotfix}, and is released from the commercial repository: its milestone is in ${repository}, not in the OSS repository.`,
+    );
+  }
+  return `${lines.join("\n")}\n`;
 }
 
 /**
@@ -36698,6 +36772,7 @@ async function run(
     if (matching.length === 0) {
       return {
         found: false,
+        candidate,
         message: `${milestoneRepository} has no open milestone for ${candidate}: expected ${candidate}, ${candidate}-M<n> or ${candidate}-RC<n>, so nothing is built`,
       };
     }
@@ -36708,6 +36783,7 @@ async function run(
     if (!milestone) {
       return {
         found: false,
+        candidate,
         message: `${milestoneRepository} has no milestone ${candidate}, so nothing is built`,
       };
     }
@@ -36717,11 +36793,17 @@ async function run(
     ? new Date(milestone.due_on).toISOString().slice(0, 10)
     : "";
   if (!dueDate && requireDueDate) {
-    throw new Error(
+    throw new NoDueDateError(
       `The milestone ${milestone.title} of ${milestoneRepository} has no due date (set require-due-date to false to allow that)`,
+      milestone,
     );
   }
-  return { found: true, releaseVersion: milestone.title, dueDate };
+  return {
+    found: true,
+    releaseVersion: milestone.title,
+    dueDate,
+    milestoneUrl: milestone.html_url ?? "",
+  };
 }
 
 async function main() {
@@ -36742,8 +36824,28 @@ async function main() {
     ),
   };
   const octokit = createOctokit({ token: getInput("milestone-token") });
-  const result = await run(inputs, { octokit });
+  let result;
+  try {
+    result = await run(inputs, { octokit });
+  } catch (error) {
+    if (error instanceof NoDueDateError) {
+      addSummary(
+        noTrainSummary({
+          candidate: error.milestone.title,
+          repository: inputs.milestoneRepository,
+          milestone: error.milestone,
+        }),
+      );
+    }
+    throw error;
+  }
   if (!result.found) {
+    addSummary(
+      noTrainSummary({
+        candidate: result.candidate,
+        repository: inputs.milestoneRepository,
+      }),
+    );
     if (inputs.failIfMissing) {
       throw new Error(result.message);
     }
@@ -36751,15 +36853,17 @@ async function main() {
     setOutput("found", "false");
     setOutput("release-version", "");
     setOutput("due-date", "");
+    setOutput("milestone-url", "");
     return;
   }
-  const { releaseVersion, dueDate } = result;
+  const { releaseVersion, dueDate, milestoneUrl } = result;
   info(
     `${inputs.snapshotVersion} is released as ${releaseVersion}, due ${dueDate || "on no date"}`,
   );
   setOutput("found", "true");
   setOutput("release-version", releaseVersion);
   setOutput("due-date", dueDate);
+  setOutput("milestone-url", milestoneUrl);
 }
 
 if (isMain(import.meta.url)) {
@@ -36768,5 +36872,6 @@ if (isMain(import.meta.url)) {
 
 var __webpack_exports__candidateOf = __webpack_exports__.RH;
 var __webpack_exports__main = __webpack_exports__.iW;
+var __webpack_exports__noTrainSummary = __webpack_exports__.WO;
 var __webpack_exports__run = __webpack_exports__.eF;
-export { __webpack_exports__candidateOf as candidateOf, __webpack_exports__main as main, __webpack_exports__run as run };
+export { __webpack_exports__candidateOf as candidateOf, __webpack_exports__main as main, __webpack_exports__noTrainSummary as noTrainSummary, __webpack_exports__run as run };

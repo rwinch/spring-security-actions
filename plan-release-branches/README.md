@@ -2,6 +2,8 @@
 
 Decides what the push of an embargoed branch builds. It is the first thing that the release workflow does, and it only reads its two inputs: nothing is checked out or changed.
 
+A long-term support embargoed branch, `embargoed/lts/7.0.x` (`7.0.1-SNAPSHOT`), is commercial: it is merged into other long-term support branches only, and releases its own version, so only `release/7.0.1` is built, with no snapshot branch. Its `kind` is `lts`, `deployment-destination` is `spring_enterprise`, and `hotfix`, `hotfix-of`, `frozen-branch`, `snapshot-branch` and `snapshot-version` are empty (`hotfix` is `false`).
+
 ## What it decides
 
 |  | A frozen embargoed branch, `embargoed/frozen/7.0.x` (`7.0.1-SNAPSHOT`) | An active embargoed branch, `embargoed/active/7.0.x` (`7.0.1-SNAPSHOT`) |
@@ -10,6 +12,8 @@ Decides what the push of an embargoed branch builds. It is the first thing that 
 | `base-version`, which the release version is worked out from | `7.0.1-SNAPSHOT` | `7.0.1.1-SNAPSHOT`, the hotfix |
 | `hotfix` | `false` | `true` |
 | `hotfix-of`, the release that the hotfix fixes | empty | `release/7.0.1` |
+| `hotfix-of-version`, the version of that release | empty | `7.0.1` |
+| `deployment-destination`, where the release is deployed to | `maven_central` | `spring_enterprise` |
 | `frozen-branch`, the frozen embargoed branch of the same generation | empty | `embargoed/frozen/7.0.x` |
 | `snapshot-branch` | `embargoed/7.0.1-INTERNAL-SNAPSHOT` | `embargoed/7.0.1.1-SNAPSHOT` |
 | `snapshot-version` | `7.0.1-INTERNAL-SNAPSHOT` | `7.0.1.1-SNAPSHOT` |
@@ -27,7 +31,7 @@ Decides what the push of an embargoed branch builds. It is the first thing that 
 
 ## Outputs
 
-`release`, `kind`, `base-version`, `hotfix`, `hotfix-of`, `frozen-branch`, `snapshot-branch`, `snapshot-version`: see the table above. `frozen-branch` is what the release workflow compares an active embargoed branch with, with `compare-branches`, before it builds the hotfix. When `release` is `false`, only `release` and `kind` are written.
+`release`, `kind`, `base-version`, `hotfix`, `hotfix-of`, `hotfix-of-version`, `deployment-destination`, `frozen-branch`, `snapshot-branch`, `snapshot-version`: see the table above. `frozen-branch` is what the release workflow compares an active embargoed branch with, with `compare-branches`, before it builds the hotfix. When `release` is `false`, only `release` and `kind` are written.
 
 ## Fails when
 

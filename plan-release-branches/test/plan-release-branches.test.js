@@ -12,6 +12,8 @@ describe("plan", () => {
       baseVersion: "7.0.1-SNAPSHOT",
       hotfix: false,
       hotfixOf: "",
+      hotfixOfVersion: "",
+      deploymentDestination: "maven_central",
       frozenBranch: "",
       snapshotBranch: "embargoed/7.0.1-INTERNAL-SNAPSHOT",
       snapshotVersion: "7.0.1-INTERNAL-SNAPSHOT",
@@ -37,9 +39,28 @@ describe("plan", () => {
       baseVersion: "7.0.1.1-SNAPSHOT",
       hotfix: true,
       hotfixOf: "release/7.0.1",
+      hotfixOfVersion: "7.0.1",
+      deploymentDestination: "spring_enterprise",
       frozenBranch: "embargoed/frozen/7.0.x",
       snapshotBranch: "embargoed/7.0.1.1-SNAPSHOT",
       snapshotVersion: "7.0.1.1-SNAPSHOT",
+    });
+  });
+
+  it("builds only the release for a long-term support embargoed branch, with no snapshot", () => {
+    expect(
+      plan({ refName: "embargoed/lts/5.8.x", version: "5.8.30-SNAPSHOT" }),
+    ).toEqual({
+      release: true,
+      kind: "lts",
+      baseVersion: "5.8.30-SNAPSHOT",
+      hotfix: false,
+      hotfixOf: "",
+      hotfixOfVersion: "",
+      deploymentDestination: "spring_enterprise",
+      frozenBranch: "",
+      snapshotBranch: "",
+      snapshotVersion: "",
     });
   });
 
@@ -112,6 +133,12 @@ describe("plan", () => {
       "a hotfix already",
     ],
     [
+      "a hotfix on a long-term support embargoed branch",
+      "embargoed/lts/7.0.x",
+      "7.0.1.1-SNAPSHOT",
+      "a long-term support branch releases its own version",
+    ],
+    [
       "an embargoed branch with nothing under it",
       "embargoed/frozen",
       "7.0.1-SNAPSHOT",
@@ -138,6 +165,8 @@ describe.each([["src/index.js"], ["dist/index.js"]])(
         "base-version": "7.0.1.1-SNAPSHOT",
         hotfix: "true",
         "hotfix-of": "release/7.0.1",
+        "hotfix-of-version": "7.0.1",
+        "deployment-destination": "spring_enterprise",
         "frozen-branch": "embargoed/frozen/7.0.x",
         "snapshot-branch": "embargoed/7.0.1.1-SNAPSHOT",
         "snapshot-version": "7.0.1.1-SNAPSHOT",
@@ -157,6 +186,7 @@ describe.each([["src/index.js"], ["dist/index.js"]])(
         kind: "frozen",
         hotfix: "false",
         "hotfix-of": "",
+        "deployment-destination": "maven_central",
         "frozen-branch": "",
         "snapshot-branch": "embargoed/7.1.0-INTERNAL-SNAPSHOT",
       });

@@ -28,6 +28,7 @@ The due date is the date of the due date of the milestone in UTC. GitHub keeps o
 | `found` | `true` if the milestone exists. `false` if it does not and `fail-if-missing` is `false`: then the two outputs below are empty. |
 | `release-version` | The title of the milestone: `7.0.1`, or `7.1.0-RC1`. |
 | `due-date` | Its due date, `YYYY-MM-DD` (UTC). Empty if it has none and `require-due-date` is `false`. |
+| `milestone-url` | The URL of the milestone on GitHub (`https://github.com/<owner>/<repo>/milestone/<number>`). Empty if it does not exist. |
 
 ## Fails when
 
@@ -35,6 +36,8 @@ The due date is the date of the due date of the milestone in UTC. GitHub keeps o
 - the milestone does not exist (for a `.0` version: there is no open milestone of its releases), unless `fail-if-missing` is `false`. Then it ends with a notice, and `found` is `false`.
 - the milestone has no due date, unless `require-due-date` is `false`
 - GitHub answers with an error. A `404` means the repository does not exist, or the token cannot read it.
+
+When the milestone does not exist, or has no due date, the summary of the step says how to add the version to a release train: a link to create the milestone (GitHub cannot prefill its title, so the text names it) or to edit its due date, which must match the date of a train. For a hotfix (`7.0.1.1`) it also names the OSS version it is a hotfix of (`7.0.1`), and says the milestone is in the commercial repository.
 
 ## Secrets and permissions
 

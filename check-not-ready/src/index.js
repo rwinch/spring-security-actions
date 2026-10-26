@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import * as core from "@actions/core";
 import { execute, isMain, TitledError } from "./run.js";
+import { addSummary } from "./summary.js";
 
 /**
  * Fails if the project has released the version in the release train already: its entry in
@@ -21,6 +22,38 @@ export function checkNotReady({ train, project, version, trainBranch }) {
   return entry !== undefined;
 }
 
+/**
+ * The status of the release in the train: not-joined (it is not in train.yml), joined (it
+ * is, and is not ready yet) or ready.
+ */
+export function trainStatus({ train, project, version }) {
+  const entry = train?.releases?.[project]?.[version];
+  if (entry === undefined) {
+    return "not-joined";
+  }
+  return entry["commit-hashes"]?.ready ? "ready" : "joined";
+}
+
+const STATUS_TEXT = {
+  "not-joined": "not joined yet",
+  joined: "joined, not ready yet",
+  ready: "ready",
+};
+
+/**
+ * The text of the train in the summary: Release train 2026.11.19 (linked to the branch)
+ * is pending (the state, linked to its line in train.yml). The state is left out if the
+ * train has none.
+ */
+export function trainText(branch, url, state, stateUrl) {
+  const name = `Release train ${branch}`;
+  const text = url ? `[${name}](${url})` : name;
+  if (!state) {
+    return text;
+  }
+  return `${text} is ${stateUrl ? `[${state}](${stateUrl})` : state}`;
+}
+
 export async function main() {
   const file = core.getInput("train-file", { required: true });
   let train;
@@ -33,12 +66,17 @@ export async function main() {
   }
   const project = core.getInput("project", { required: true });
   const version = core.getInput("version", { required: true });
-  const known = checkNotReady({
-    train,
-    project,
-    version,
-    trainBranch: core.getInput("train-branch") || "(unknown)",
-  });
+  const trainBranch = core.getInput("train-branch") || "(unknown)";
+  const status = trainStatus({ train, project, version });
+  core.setOutput("status", status);
+  core.setOutput("train-state", train?.state ?? "");
+  if (status === "ready") {
+    // the run fails here, so nothing after it says where the release is in the train
+    addSummary(
+      `${trainText(trainBranch, core.getInput("train-url"), train?.state, core.getInput("train-state-url"))}: ${STATUS_TEXT[status]}\n`,
+    );
+  }
+  const known = checkNotReady({ train, project, version, trainBranch });
   core.info(
     known
       ? `${project} ${version} is in the release train, and is not ready yet`
