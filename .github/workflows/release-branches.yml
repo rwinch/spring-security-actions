@@ -25,9 +25,17 @@ name: release-branches
 # exist ends the run with the notice No milestone, and builds nothing.
 #
 # What the release train asks for is read from the release train repository, from the
-# branch of the date that the milestone of the release is due. If there is none, the
+# branch of the date that the milestone of the release is due (for a hotfix, the milestone of the
+# release it fixes in the OSS repository: its own due date is its commercial availability, after
+# the train that builds it). If there is none, the
 # branches are built without the dependency updates. A release that is ready in the
 # train is not changed: the run fails, and says what to do.
+#
+# Once the branches are pushed, the release joins the train (the Join workflow of the release
+# train repository runs), if the train exists and has not got the release yet. The due date of
+# the milestone of a hotfix is set to the commercial-general-availability of the train first.
+# The workflow can be run by hand (workflow_dispatch of the caller) on an embargoed branch, for
+# example after the due date of a milestone was set: what has joined is not joined again.
 #
 # This is a reusable workflow: a project calls it from a workflow that is triggered by the
 # push of the embargoed branches (see docs/release-branches.md for the caller, the secret
@@ -71,6 +79,8 @@ jobs:
       snapshot-version: ${{ steps.plan.outputs.snapshot-version }}
       release-version: ${{ steps.release.outputs.release-version }}
       due-date: ${{ steps.release.outputs.due-date }}
+      deployment-destination: ${{ steps.plan.outputs.deployment-destination }}
+      train-date: ${{ steps.train-milestone.outputs.due-date || steps.release.outputs.due-date }}
       milestone-url: ${{ steps.release.outputs.milestone-url }}
       project: ${{ steps.repositories.outputs.project }}
       oss-repository: ${{ steps.repositories.outputs.oss-repository }}
@@ -85,7 +95,7 @@ jobs:
         uses: spring-io/spring-release-actions/compute-version@3f7412aeec60ad13127b2a536a1b19a2803a5b81 # 0.0.8
       - name: Decide what to build
         id: plan
-        uses: spring-io/spring-security-actions/plan-release-branches@538fffe880503809a715e25c13519275af05da69 # 0.0.9
+        uses: spring-io/spring-security-actions/plan-release-branches@1fb38fbddef20d8f3652e5f62944734ab87ad2f9 # 0.0.11
         with:
           ref-name: ${{ github.ref_name }}
           version: ${{ steps.version.outputs.version }}
@@ -120,6 +130,19 @@ jobs:
           milestone-repository: ${{ steps.plan.outputs.kind == 'active' && github.repository || steps.repositories.outputs.oss-repository }}
           milestone-token: ${{ steps.plan.outputs.kind == 'active' && secrets.RELEASE_AUTOMATION_TOKEN || secrets.GITHUB_TOKEN }}
           fail-if-missing: "false"
+          # The due date of a hotfix is corrected to the commercial availability of its train
+          require-due-date: ${{ steps.plan.outputs.kind != 'active' }}
+      # A hotfix is in the release train of its OSS equivalent: the train that the milestone of the
+      # release it fixes (7.0.1 for 7.0.1.1) is due. The due date of the milestone of the hotfix is
+      # when it is commercially available, and that is after the train that builds it.
+      - name: Work out the date of the release train of the hotfix
+        id: train-milestone
+        if: steps.plan.outputs.kind == 'active' && steps.release.outputs.found == 'true'
+        uses: spring-io/spring-security-actions/compute-release-version@538fffe880503809a715e25c13519275af05da69 # 0.0.9
+        with:
+          snapshot-version: ${{ format('{0}-SNAPSHOT', steps.plan.outputs.hotfix-of-version) }}
+          milestone-repository: ${{ steps.repositories.outputs.oss-repository }}
+          milestone-token: ${{ secrets.GITHUB_TOKEN }}
 
   build:
     name: Build the branches
@@ -133,6 +156,7 @@ jobs:
       BASE_VERSION: ${{ needs.plan.outputs.base-version }}
       SNAPSHOT_BRANCH: ${{ needs.plan.outputs.snapshot-branch }}
       SNAPSHOT_VERSION: ${{ needs.plan.outputs.snapshot-version }}
+      DEPLOYMENT_DESTINATION: ${{ needs.plan.outputs.deployment-destination }}
     steps:
       # Everything is built in this checkout, and only the push at the end is seen by
       # anybody. The token is that of the push, which makes the push run the workflows
@@ -144,14 +168,25 @@ jobs:
           fetch-depth: 0
       - name: Set the git identity
         uses: spring-io/spring-security-actions/git-identity@538fffe880503809a715e25c13519275af05da69 # 0.0.9
-      # The train is the one that the milestone of the release is due. If it has not been
+      # The train is the one that the milestone of the release is due (for a hotfix, the milestone of the release it fixes). If it has not been
       # created, that is said in a notice, and the branches are built without the dependencies.
       - name: Read the release train
         id: train
         uses: spring-io/spring-security-actions/load-train@538fffe880503809a715e25c13519275af05da69 # 0.0.9
         with:
           release-train-repository: ${{ inputs.release-train-repository || 'spring-io/release-train' }}
-          date: ${{ needs.plan.outputs.due-date }}
+          date: ${{ needs.plan.outputs.train-date }}
+          token: ${{ secrets.RELEASE_AUTOMATION_TOKEN }}
+      # The due date of the milestone of a hotfix is the commercial availability of the train: it is
+      # corrected here if it is not, or if it has none.
+      - name: Set the due date of the milestone of the hotfix
+        if: env.KIND == 'active' && steps.train.outputs.found == 'true'
+        uses: spring-io/spring-security-actions/align-milestone@1fb38fbddef20d8f3652e5f62944734ab87ad2f9 # 0.0.11
+        with:
+          train-file: ${{ steps.train.outputs.train-file }}
+          train-branch: ${{ steps.train.outputs.branch }}
+          milestone-repository: ${{ github.repository }}
+          milestone: ${{ needs.plan.outputs.release-version }}
           token: ${{ secrets.RELEASE_AUTOMATION_TOKEN }}
       - name: Stop if the release is ready already
         id: not-ready
@@ -260,3 +295,22 @@ jobs:
           branches: |
             release/${{ needs.plan.outputs.release-version }}=${{ needs.plan.outputs.release-version }}
             ${{ env.SNAPSHOT_BRANCH }}=${{ env.SNAPSHOT_VERSION }}
+
+      # The release has joined the train once its branches are pushed (the train builds the release
+      # branch), a train exists, and the milestone has its due date: the one of the train for a
+      # release, the one that was set above for a hotfix. A release that has joined is not joined
+      # again, so a run by hand after the due date of a milestone was set joins what was missed.
+      - name: Join the release train
+        if: steps.train.outputs.found == 'true'
+        uses: spring-io/spring-security-actions/join-train@1fb38fbddef20d8f3652e5f62944734ab87ad2f9 # 0.0.11
+        with:
+          release-train-repository: ${{ inputs.release-train-repository || 'spring-io/release-train' }}
+          train-branch: ${{ steps.train.outputs.branch }}
+          train-file: ${{ steps.train.outputs.train-file }}
+          train-url: ${{ format('{0}/{1}/tree/{2}', github.server_url, inputs.release-train-repository || 'spring-io/release-train', steps.train.outputs.branch) }}
+          project: ${{ needs.plan.outputs.project }}
+          version: ${{ needs.plan.outputs.release-version }}
+          release-repository: ${{ github.repository }}
+          release-branch: release/${{ needs.plan.outputs.release-version }}
+          deployment-destination: ${{ env.DEPLOYMENT_DESTINATION }}
+          token: ${{ secrets.RELEASE_AUTOMATION_TOKEN }}
