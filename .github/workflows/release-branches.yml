@@ -95,7 +95,7 @@ jobs:
         uses: spring-io/spring-release-actions/compute-version@3f7412aeec60ad13127b2a536a1b19a2803a5b81 # 0.0.8
       - name: Decide what to build
         id: plan
-        uses: spring-io/spring-security-actions/plan-release-branches@1fb38fbddef20d8f3652e5f62944734ab87ad2f9 # 0.0.11
+        uses: spring-io/spring-security-actions/plan-release-branches@4dd16cd0922a3df7ba47afa2f18c7bb74632ba42 # 0.0.11
         with:
           ref-name: ${{ github.ref_name }}
           version: ${{ steps.version.outputs.version }}
@@ -181,7 +181,7 @@ jobs:
       # corrected here if it is not, or if it has none.
       - name: Set the due date of the milestone of the hotfix
         if: env.KIND == 'active' && steps.train.outputs.found == 'true'
-        uses: spring-io/spring-security-actions/align-milestone@1fb38fbddef20d8f3652e5f62944734ab87ad2f9 # 0.0.11
+        uses: spring-io/spring-security-actions/align-milestone@4dd16cd0922a3df7ba47afa2f18c7bb74632ba42 # 0.0.11
         with:
           train-file: ${{ steps.train.outputs.train-file }}
           train-branch: ${{ steps.train.outputs.branch }}
@@ -301,11 +301,11 @@ jobs:
       # release, the one that was set above for a hotfix. A release that has joined is not joined
       # again, so a run by hand after the due date of a milestone was set joins what was missed.
       - name: Join the release train
-        if: steps.train.outputs.found == 'true'
-        uses: spring-io/spring-security-actions/join-train@1fb38fbddef20d8f3652e5f62944734ab87ad2f9 # 0.0.11
+        uses: spring-io/spring-security-actions/join-train@4a94ff6f5be189f6e76743cd7a7083f547931afd # 0.0.11
         with:
           release-train-repository: ${{ inputs.release-train-repository || 'spring-io/release-train' }}
           train-branch: ${{ steps.train.outputs.branch }}
+          train-found: ${{ steps.train.outputs.found }}
           train-file: ${{ steps.train.outputs.train-file }}
           train-url: ${{ format('{0}/{1}/tree/{2}', github.server_url, inputs.release-train-repository || 'spring-io/release-train', steps.train.outputs.branch) }}
           project: ${{ needs.plan.outputs.project }}

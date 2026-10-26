@@ -82,7 +82,7 @@ The caller needs one secret and one variable, which are settings of the **commer
 
 | Name | Kind | What it is |
 |---|---|---|
-| `RELEASE_AUTOMATION_TOKEN` | secret | A token that can read the release train repository and run its workflow Join (Actions: write), create issues in the OSS repository, read the milestones and create issues in the commercial repository (for a hotfix), and push to the commercial repository. See below. |
+| `RELEASE_AUTOMATION_TOKEN` | secret | A token that can read the release train repository and run its workflow Join (Actions: Read and write), create issues in the OSS repository, read the milestones and create issues in the commercial repository (for a hotfix), and push to the commercial repository. See below. |
 | `RELEASE_TRAIN_REPOSITORY` | variable | The release train repository, `owner/repo`. The caller gives it as the input `release-train-repository`. If it is not set, the release train is `spring-io/release-train`. |
 
 Everything that can be done with the token of the workflow itself, `GITHUB_TOKEN`, is: the permissions of the workflow are `contents: read`, and it reads the milestones of the OSS repository, which is public. It cannot read the milestones of the commercial repository, which is private (that needs `issues: read`, and a called workflow cannot widen the permissions of its caller). `RELEASE_AUTOMATION_TOKEN` is only used where `GITHUB_TOKEN` cannot:
@@ -91,6 +91,8 @@ Everything that can be done with the token of the workflow itself, `GITHUB_TOKEN
 |---|---|---|
 | the checkout, and the push of the branches | `RELEASE_AUTOMATION_TOKEN` | it writes to the commercial repository, and a push with it **runs workflows** (the workflows of the project that build the new branches and publish the snapshots). A push with `GITHUB_TOKEN` runs none. |
 | `load-train` | `RELEASE_AUTOMATION_TOKEN` | the release train repository is private, and is another repository than this one. |
+| `align-milestone` (a hotfix) | `RELEASE_AUTOMATION_TOKEN` | it writes a milestone of the commercial repository, which is this one, and `GITHUB_TOKEN` has `contents: read` only. |
+| `join-train` | `RELEASE_AUTOMATION_TOKEN` | it runs a workflow of the release train repository, which is another repository than this one. |
 | `ensure-dependency-issues` | `RELEASE_AUTOMATION_TOKEN` | the issues of a release are in the OSS repository, which is another repository than this one, and the issues of a hotfix are in this one, with its milestone. |
 | `compute-release-version` (in the plan job) | `GITHUB_TOKEN` for a release, `RELEASE_AUTOMATION_TOKEN` for a hotfix | the milestones of a release are in the OSS repository, which is public. The milestone of a hotfix is in the commercial repository, which is private. |
 
@@ -98,16 +100,16 @@ Everything that can be done with the token of the workflow itself, `GITHUB_TOKEN
 
 | Repository | What for | Fine-grained token | Classic token |
 |---|---|---|---|
-| the release train repository | read its branches and files | **Contents: Read-only** | `repo` |
+| the release train repository | read its branches and files, and run its workflow Join (`join-train`) | **Contents: Read-only** and **Actions: Read and write** | `repo` (it includes running workflows: no `workflow` scope is needed, that one is for changing workflow files) |
 | the OSS repository | read its milestones, create and read its issues (for a release) | **Issues: Read and write** | `repo` (`public_repo` for a public repository) |
-| the commercial repository | fetch it, and push the branches; read its milestones, create and read its issues (for a hotfix) | **Contents: Read and write** and **Issues: Read and write** | `repo` |
+| the commercial repository | fetch it, and push the branches; read and set the due date of its milestones (a hotfix, `align-milestone`), create and read its issues (for a hotfix) | **Contents: Read and write** and **Issues: Read and write** (issues include milestones) | `repo` |
 
 **A fine-grained token has one owner.** When the three repositories are in one account or one organization (as in the practice repositories), one fine-grained token with those three permissions does. When they are not (the real ones: the release train is in `spring-io`, the others in `spring-projects`), a fine-grained token cannot cover them, and you need a classic token, whose `repo` scope covers every repository that its user can access. Make it the token of a machine user that has the access that it needs, and not that of a person. The scopes are broad, and are the reason to keep the secret in the commercial repository only.
 
 ### Create a classic token
 
 1. Go to https://github.com/settings/tokens and choose **Generate new token (classic)**.
-1. Give it a name (`release automation`) and an expiration, and select the scope `repo`.
+1. Give it a name (`release automation`) and an expiration, and select the scope `repo`. That is all: it reads and writes the contents, issues and milestones, and runs the workflow Join of the release train repository, of every repository that its user can access (the user needs write access to the commercial repository and the OSS repository issues, and access to the release train repository that lets it run workflows).
 1. Generate it, and copy it. It is shown once.
 1. For an organization that uses SAML single sign-on, choose **Configure SSO** next to the token and authorize the organizations of the repositories. Without it the token cannot read them.
 
@@ -116,7 +118,7 @@ Everything that can be done with the token of the workflow itself, `GITHUB_TOKEN
 1. Go to https://github.com/settings/personal-access-tokens and choose **Generate new token**.
 1. Choose the **resource owner** that owns the three repositories.
 1. Choose **Only select repositories**, and select the release train repository, the OSS repository and the commercial repository.
-1. Under **Repository permissions**, set **Contents** to **Read and write** (that is for the commercial repository, and reads the release train too), and **Issues** to **Read and write** (the OSS repository, for a release, and the commercial repository, for a hotfix). Metadata (read) is added by itself.
+1. Under **Repository permissions**, set **Contents** to **Read and write** (that is for the commercial repository, and reads the release train too), **Issues** to **Read and write** (the OSS repository, for a release, and the commercial repository, for a hotfix, with its milestones), and **Actions** to **Read and write** (runs the workflow Join of the release train repository). Metadata (read) is added by itself.
 1. Generate it, and copy it.
 
 ### Store it
@@ -139,7 +141,7 @@ Every message says what went wrong. These are the usual ones:
 | The run ends with the notice **No milestone** (`has no milestone 7.0.1`), and builds nothing | The milestone of the version does not exist. Create it, with a due date, in the OSS repository for a release, and in the commercial repository for a hotfix (`7.0.1.1`, an active embargoed branch: the notice names the commercial repository), and push again. |
 | **Work out the release version**: `has no due date` | Set the due date of the milestone of a release. It is the date of the release train, `2026-11-19` for the train `2026.11.19`. A hotfix needs none: it is set from the train. |
 | **Set the due date of the milestone of the hotfix**: `No commercial-general-availability` | The train has no `schedule.publication.commercial-general-availability`. Add it to the train, and run the workflow again. |
-| **Join the release train**: `Could not dispatch Join` | The token cannot run workflows of the release train repository: it needs Actions: write on it. |
+| **Join the release train**: `Could not dispatch Join` | The token cannot run workflows of the release train repository: it needs Actions: Read and write on it (fine-grained), or `repo` (classic). |
 | **Read the release train**: `404 ... cannot read it` | The token cannot read the release train repository, or `RELEASE_TRAIN_REPOSITORY` is wrong. A train that has not been created is not an error: the branches are built without the dependencies. |
 | **Merge the release into the hotfix**: `could not be merged` | The active embargoed branch and the release changed a file in a way that the side of the active embargoed branch cannot settle. Merge `release/7.0.1` into the active embargoed branch by hand (the merge forward), push it, and the hotfix is built again. |
 | **Merge the release into the hotfix**: warning `No release to build the hotfix on` | Not a failure: the release has not been built. Push the frozen embargoed branch, and push the active embargoed branch again. |
