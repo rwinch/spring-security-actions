@@ -2,6 +2,19 @@
 
 A push to an embargoed branch of the commercial repository builds the branches of its release, with no one doing it by hand. This is the guide to it: what it builds, what it needs, how to give it the secrets that it needs, and what to do when it fails.
 
+## Setup checklist
+
+What a project needs before a push builds anything. Each point has its section below.
+
+1. **The caller workflow** in the commercial repository, `.github/workflows/release-branches.yml`, on every embargoed branch (it comes with the merges forward): it runs for a push to `embargoed/frozen/**`, `embargoed/active/**` and `embargoed/lts/**`, and by hand (`workflow_dispatch`), and calls the reusable workflow at a commit of a tag. See [Calling it](#calling-it).
+2. **The secret** `RELEASE_AUTOMATION_TOKEN` in the commercial repository, and the variables `UBUNTU_RUNS_ON` (the runners of the organization) and, if it is not `spring-io/release-train`, `RELEASE_TRAIN_REPOSITORY`. See [the tokens](#the-secret-the-variable-and-the-tokens).
+3. **The version** of `gradle.properties` of an embargoed branch is `<major>.<minor>.<patch>-SNAPSHOT` (`7.0.9-SNAPSHOT`), also on an active one: its hotfix, `7.0.9.1`, is worked out from it.
+4. **The milestone of the release**, with a due date. A release or an LTS version (`7.0.9`, `5.8.30`): in the OSS repository, and in the commercial repository for an LTS version. A hotfix (`7.0.9.1`): in the commercial repository, and the milestone of the version that it fixes (`7.0.9`) in the OSS repository, which decides its release train. If one is missing, the run ends with the notice **No milestone**, and builds nothing.
+5. **The release train** branch of the due date of that milestone in the release train repository (it may not exist yet: then the branches are built without the dependency updates, and nothing joins). See [the release train](#the-release-train).
+6. **The version catalog**, `gradle/libs.versions.toml`, has a `[versions]` entry named after each project of the train, one per line: `spring-framework = "7.0.9"`.
+7. **The workflow `release-train-join.yml`** ("Release Train - Join") on the release branches (it is on the embargoed branches, so the release branches have it), which joins the train. See [what a run does](#what-a-run-does-in-order).
+8. **A `build.gradle` or `build.gradle.kts` in the root**, for the commercial license of a hotfix (the Broadcom license of the POM is applied from there).
+
 ## What a push builds
 
 The reusable workflow [`release-branches.yml`](../.github/workflows/release-branches.yml) of this repository, and the actions that it uses (each is a directory of this repository, with a README). The project calls it for a push to `embargoed/frozen/**`, `embargoed/active/**` or `embargoed/lts/**`. It builds the branches of the release again from the pushed commit, every time, and pushes them once, both or none, forced. Nobody commits to them.
@@ -21,9 +34,9 @@ A frozen or active embargoed branch is for a generation that is OSS when its rel
 
 ### A long-term support embargoed branch
 
-`embargoed/lts/<generation>` (`embargoed/lts/5.8.x`, `5.8.30-SNAPSHOT`) is commercial: it is merged into other long-term support branches only, and releases its own version. A push builds only `release/5.8.30`, from the pushed commit, with **no snapshot branch** and no internal snapshot. The commits of the release are the ones of a frozen branch (an issue for each dependency that the release train asks for, and then `Release 5.8.30`), but the milestone `5.8.30` and the issues are in the **commercial repository**, since there is no OSS release. It is deployed to `spring-enterprise`.
+`embargoed/lts/<generation>` (`embargoed/lts/5.8.x`, `5.8.30-SNAPSHOT`) is commercial: it is merged into other long-term support branches only, and releases its own version. A push builds only `release/5.8.30`, from the pushed commit, with **no snapshot branch** and no internal snapshot. The commits of the release are the ones of a frozen branch (an issue for each dependency that the release train asks for, and then `Release 5.8.30`), but the milestone `5.8.30` and the issues are in the **commercial repository**, since there is no OSS release. It is deployed to `Spring Enterprise`.
 
-Its train is found as for a release: the milestone `5.8.30` is due on the date of the train, `2026-11-19` for the train `2026.11.19`. The due date of its milestone is not changed. The release joins the train with the destination `spring-enterprise`, and takes the release versions of the train (it prefers no hotfix versions of the dependencies).
+Its train is found as for a release: the milestone `5.8.30` is due on the date of the train, `2026-11-19` for the train `2026.11.19`. The due date of its milestone is not changed. The release joins the train with the destination `Spring Enterprise`, and takes the release versions of the train (it prefers no hotfix versions of the dependencies).
 
 ### The hotfix is built on the release
 
@@ -37,9 +50,36 @@ A hotfix is the release plus the fixes of the active embargoed branch, so the sn
 
 The **milestone** of the release, and the **issues** of its dependency updates, are in the **OSS repository** for a release, which is public. A hotfix is only released from the commercial repository, so its milestone (`7.0.1.1`, with a due date) and the issues of its dependency updates are in the **commercial repository**: a milestone in the OSS repository would tell everyone that there is a hotfix. The issue of a commit (`Closes gh-123`) is the one of the repository that has the milestone. The milestone is looked for first, in the plan job, and only if there is something to build. If it does not exist, the run succeeds with the notice **No milestone**, which names the milestone and the repository, and builds nothing. A milestone that exists without a due date is an error.
 
-**Joining the train.** When the branches are pushed, the release joins the train by running the workflow `Join` of the release train repository on the train branch, for `release/7.0.1` (`maven-central` for a frozen embargoed branch, `spring-enterprise` for a hotfix, which is commercial). It joins only if the train exists and does not have the release yet, so a run that is made again does not join twice. The due date of the milestone of a hotfix is first set to `schedule.publication.commercial-general-availability` of its train (at noon UTC), if it is another or has none: the notice **Milestone due date** says so. The train of a hotfix is the one of its OSS equivalent, so the milestone of `7.0.1` in the OSS repository decides it. If that milestone does not exist, the run ends with the notice **No milestone**, as for any milestone, and builds nothing. To join after a milestone was fixed, run the workflow by hand on the embargoed branch (`workflow_dispatch`).
+**Joining the train.** When the branches are pushed, the release joins the train by running the workflow `Release Train - Join` (`release-train-join.yml`) of **the project** on the release branch `release/7.0.1`, with the destination (`Maven Central` for a frozen embargoed branch, `Spring Enterprise` for a hotfix, which is commercial), the train branch and the release train repository. That workflow has the token for the release train, runs `Join` there with the commit of the release branch, and waits for it, so a failed join is in its run, which the summary links to. The commercial repository needs that workflow on its branches (the workflow generator makes it). It joins only if the train exists and does not have the release yet, so a run that is made again does not join twice. The due date of the milestone of a hotfix is first set to `schedule.publication.commercial-general-availability` of its train (at noon UTC), if it is another or has none: the notice **Milestone due date** says so. The train of a hotfix is the one of its OSS equivalent, so the milestone of `7.0.1` in the OSS repository decides it. If that milestone does not exist, the run ends with the notice **No milestone**, as for any milestone, and builds nothing. To join after a milestone was fixed, run the workflow by hand on the embargoed branch (`workflow_dispatch`).
 
 Which versions of the dependencies the release needs comes from the **release train**, a repository with a branch for each release date (`2026.11.19`) that has `release-versions.json` and `train.yml`. The branch is the date that the milestone of the release is due. For a hotfix it is the date that the OSS milestone of the release it fixes is due (`7.0.1` for `7.0.1.1`): the due date of the hotfix is when it is commercially available, after the train that builds it. If that train has not been created, the branches are built without the dependency updates. If the release is **ready** in the train, it is not changed: the run fails and says what to do.
+
+### The release train
+
+The release train repository (`spring-io/release-train`, or `RELEASE_TRAIN_REPOSITORY`) has a branch for every release date (`2026.11.19`), with two files:
+- `release-versions.json`: the versions of every project of the train (`{ "spring-framework": ["7.0.10", "7.0.10.1"], ... }`).
+- `train.yml`: its state, its schedule (`schedule.publication.commercial-general-availability` is the date that a hotfix is available) and, for every release, the commit hashes of the steps that it went through (`joined`, `ready`, `built`, `tested`).
+
+The workflow reads the branch of the date, so the milestone's due date must be a date of a train. A train that has not been created is not an error, and neither is a release that has not joined. It does not change a release that is **ready**. The dependency updates are only the ones of the versions that **have joined** the train.
+
+## What a run does, in order
+
+**The plan job** decides, and builds nothing:
+1. Reads the version of `gradle.properties`, and decides what to build from the branch: frozen, active (a hotfix) or LTS.
+2. For an active branch, compares it with the frozen branch of its generation: with no changes of its own, it ends with **Nothing to build**.
+3. For a hotfix, looks for the milestone of the version it fixes in the OSS repository (that is the date of its release train), and for a `.0` version it is only built if the next release is the GA.
+4. Looks for the milestone of the release. A release is in the OSS repository, a hotfix or an LTS version in the commercial one. If there is none: **No milestone**, and nothing is built.
+5. For frozen and active branches, checks that the generation is still OSS on the date of the train.
+
+**The build job** builds the branches, in one checkout, and pushes them at the end, both or none:
+1. Reads the release train of the date (**No release train**, a notice, if it has not been created: the dependency steps are skipped, and nothing joins). For a hotfix, sets the due date of its milestone to the commercial general availability of the train.
+2. Fails if the release is **ready** in the train already.
+3. Builds the snapshot branch (not for an LTS branch): from the pushed commit, for a hotfix with the release merged in and the commercial license applied. Its dependencies are snapshots of the versions that have joined the train, with no issues: the branch is thrown away or replaced.
+4. Builds the release branch: from the pushed commit, for a hotfix from the snapshot branch. It works out the versions of the dependencies from the train, **creates an issue for each update that has none**, makes one commit for each (`Update spring-framework to 7.0.10`, with `Closes gh-123` of that issue), and then the commit of the version, `Release 7.0.9`. The issues are in the milestone of the release, in the OSS repository for a release, and in the commercial repository for a hotfix or an LTS version (the milestone is there, and a milestone in the OSS repository would tell everyone about a hotfix). Their title is `Update <dependency> to <version>`, with the label `type: dependency-upgrade`.
+5. Pushes the branches, and the summary of the run has them, with the milestone and the release train.
+6. Joins the release train: runs the workflow `release-train-join.yml` of the project on the release branch, with the destination (`Maven Central` for a frozen branch, `Spring Enterprise` for a hotfix or an LTS version), unless the release is in `train.yml` already. A join that fails is in the run of that workflow, which the summary links to.
+
+**Which versions the updates take** (`map-train-versions`): for each entry of `[versions]` named after a project of the train, the newest version of the train of the same generation (`7.0.x`) that has joined it (a hotfix version only for a hotfix, never for a release or an LTS version). It never goes down: a catalog that has a newer version than the train fails. A version that has the value already is left alone, so a run that is made again changes nothing twice. An issue of an update that someone **closed** is a decision not to update it: it is said in a notice, and there is no commit for it. See the READMEs of `map-train-versions`, `ensure-dependency-issues` and `update-versions`.
 
 ## Calling it
 
@@ -93,7 +133,7 @@ The caller needs one secret and one variable, which are settings of the **commer
 
 | Name | Kind | What it is |
 |---|---|---|
-| `RELEASE_AUTOMATION_TOKEN` | secret | A token that can read the release train repository and run its workflow Join (Actions: Read and write), create issues in the OSS repository, read the milestones and create issues in the commercial repository (for a hotfix), and push to the commercial repository. See below. |
+| `RELEASE_AUTOMATION_TOKEN` | secret | A token that can read the release train repository, run the workflow `Release Train - Join` of the commercial repository (Actions: Read and write), create issues in the OSS repository, read the milestones and create issues in the commercial repository (for a hotfix), and push to the commercial repository. See below. |
 | `RELEASE_TRAIN_REPOSITORY` | variable | The release train repository, `owner/repo`. The caller gives it as the input `release-train-repository`. If it is not set, the release train is `spring-io/release-train`. |
 
 Everything that can be done with the token of the workflow itself, `GITHUB_TOKEN`, is: the permissions of the workflow are `contents: read`, and it reads the milestones of the OSS repository, which is public. It cannot read the milestones of the commercial repository, which is private (that needs `issues: read`, and a called workflow cannot widen the permissions of its caller). `RELEASE_AUTOMATION_TOKEN` is only used where `GITHUB_TOKEN` cannot:
@@ -103,7 +143,7 @@ Everything that can be done with the token of the workflow itself, `GITHUB_TOKEN
 | the checkout, and the push of the branches | `RELEASE_AUTOMATION_TOKEN` | it writes to the commercial repository, and a push with it **runs workflows** (the workflows of the project that build the new branches and publish the snapshots). A push with `GITHUB_TOKEN` runs none. |
 | `load-train` | `RELEASE_AUTOMATION_TOKEN` | the release train repository is private, and is another repository than this one. |
 | `align-milestone` (a hotfix) | `RELEASE_AUTOMATION_TOKEN` | it writes a milestone of the commercial repository, which is this one, and `GITHUB_TOKEN` has `contents: read` only. |
-| `join-train` | `RELEASE_AUTOMATION_TOKEN` | it runs a workflow of the release train repository, which is another repository than this one. |
+| `join-train` | `RELEASE_AUTOMATION_TOKEN` | it runs a workflow of this repository, and `GITHUB_TOKEN` has `contents: read` only. |
 | `ensure-dependency-issues` | `RELEASE_AUTOMATION_TOKEN` | the issues of a release are in the OSS repository, which is another repository than this one, and the issues of a hotfix are in this one, with its milestone. |
 | `compute-release-version` (in the plan job) | `GITHUB_TOKEN` for a release, `RELEASE_AUTOMATION_TOKEN` for a hotfix | the milestones of a release are in the OSS repository, which is public. The milestone of a hotfix is in the commercial repository, which is private. |
 
@@ -111,16 +151,16 @@ Everything that can be done with the token of the workflow itself, `GITHUB_TOKEN
 
 | Repository | What for | Fine-grained token | Classic token |
 |---|---|---|---|
-| the release train repository | read its branches and files, and run its workflow Join (`join-train`) | **Contents: Read-only** and **Actions: Read and write** | `repo` (it includes running workflows: no `workflow` scope is needed, that one is for changing workflow files) |
+| the release train repository | read its branches and files | **Contents: Read-only** | `repo` |
 | the OSS repository | read its milestones, create and read its issues (for a release) | **Issues: Read and write** | `repo` (`public_repo` for a public repository) |
-| the commercial repository | fetch it, and push the branches; read and set the due date of its milestones (a hotfix, `align-milestone`), create and read its issues (for a hotfix) | **Contents: Read and write** and **Issues: Read and write** (issues include milestones) | `repo` |
+| the commercial repository | fetch it, and push the branches; run its workflow `Release Train - Join` (`join-train`); read and set the due date of its milestones (a hotfix, `align-milestone`), create and read its issues (for a hotfix) | **Contents: Read and write**, **Actions: Read and write** and **Issues: Read and write** (issues include milestones) | `repo` (it includes running workflows: no `workflow` scope is needed, that one is for changing workflow files) |
 
 **A fine-grained token has one owner.** When the three repositories are in one account or one organization (as in the practice repositories), one fine-grained token with those three permissions does. When they are not (the real ones: the release train is in `spring-io`, the others in `spring-projects`), a fine-grained token cannot cover them, and you need a classic token, whose `repo` scope covers every repository that its user can access. Make it the token of a machine user that has the access that it needs, and not that of a person. The scopes are broad, and are the reason to keep the secret in the commercial repository only.
 
 ### Create a classic token
 
 1. Go to https://github.com/settings/tokens and choose **Generate new token (classic)**.
-1. Give it a name (`release automation`) and an expiration, and select the scope `repo`. That is all: it reads and writes the contents, issues and milestones, and runs the workflow Join of the release train repository, of every repository that its user can access (the user needs write access to the commercial repository and the OSS repository issues, and access to the release train repository that lets it run workflows).
+1. Give it a name (`release automation`) and an expiration, and select the scope `repo`. That is all: it reads and writes the contents, issues and milestones, and runs the workflow `Release Train - Join`, of every repository that its user can access (the user needs write access to the commercial repository, issues access to the OSS repository, and to be able to read the release train repository).
 1. Generate it, and copy it. It is shown once.
 1. For an organization that uses SAML single sign-on, choose **Configure SSO** next to the token and authorize the organizations of the repositories. Without it the token cannot read them.
 
@@ -129,7 +169,7 @@ Everything that can be done with the token of the workflow itself, `GITHUB_TOKEN
 1. Go to https://github.com/settings/personal-access-tokens and choose **Generate new token**.
 1. Choose the **resource owner** that owns the three repositories.
 1. Choose **Only select repositories**, and select the release train repository, the OSS repository and the commercial repository.
-1. Under **Repository permissions**, set **Contents** to **Read and write** (that is for the commercial repository, and reads the release train too), **Issues** to **Read and write** (the OSS repository, for a release, and the commercial repository, for a hotfix, with its milestones), and **Actions** to **Read and write** (runs the workflow Join of the release train repository). Metadata (read) is added by itself.
+1. Under **Repository permissions**, set **Contents** to **Read and write** (that is for the commercial repository, and reads the release train too), **Issues** to **Read and write** (the OSS repository, for a release, and the commercial repository, for a hotfix, with its milestones), and **Actions** to **Read and write** (runs the workflow `Release Train - Join` of the commercial repository). Metadata (read) is added by itself.
 1. Generate it, and copy it.
 
 ### Store it
@@ -149,11 +189,11 @@ Every message says what went wrong. These are the usual ones:
 | The run fails at | What to do |
 |---|---|
 | **Stop if the release is ready already** | The release is ready in the release train, and is not changed any more. To release the next version instead: set the version of `gradle.properties` to the next version in the OSS repository, and merge forward. |
-| The run ends with the notice **No milestone** (`has no milestone 7.0.1`), and builds nothing | The milestone of the version does not exist. Create it, with a due date, in the OSS repository for a release, and in the commercial repository for a hotfix (`7.0.1.1`, an active embargoed branch: the notice names the commercial repository), and push again. |
+| The run ends with the notice **No milestone** (`has no milestone 7.0.1`), and builds nothing | The milestone of the version does not exist. Create it, with a due date that is the date of the release train, in the OSS repository for a release, and in the commercial repository for a hotfix (`7.0.1.1`, an active embargoed branch: the notice names the commercial repository), and push again. The due date of a hotfix milestone does not matter: it is set to the commercial general availability of the train of its OSS version, as the existing hotfix milestones have it (`7.0.8.1` is due on the commercial availability of the train `2026.10.22`, `2026-11-19`). |
 | **Work out the release version**: `has no due date` | Set the due date of the milestone of a release. It is the date of the release train, `2026-11-19` for the train `2026.11.19`. A hotfix needs none: it is set from the train. |
 | **Set the due date of the milestone of the hotfix**: `No commercial-general-availability` | The train has no `schedule.publication.commercial-general-availability`. Add it to the train, and run the workflow again. |
 | **Check that the generation is still supported as OSS**: `OSS support of 7.0.x ended` | The generation is commercial by the date of the train. Replace `embargoed/frozen/7.0.x` and `embargoed/active/7.0.x` with `embargoed/lts/7.0.x`. |
-| **Join the release train**: `Could not dispatch Join` | The token cannot run workflows of the release train repository: it needs Actions: Read and write on it (fine-grained), or `repo` (classic). |
+| **Join the release train**: `Could not run release-train-join.yml` | The branch has no `release-train-join.yml`, or the token cannot run workflows of the commercial repository: it needs Actions: Read and write on it (fine-grained), or `repo` (classic). A join that fails in the workflow itself is in the run of `Release Train - Join` that the summary links to. |
 | **Read the release train**: `404 ... cannot read it` | The token cannot read the release train repository, or `RELEASE_TRAIN_REPOSITORY` is wrong. A train that has not been created is not an error: the branches are built without the dependencies. |
 | **Merge the release into the hotfix**: `could not be merged` | The active embargoed branch and the release changed a file in a way that the side of the active embargoed branch cannot settle. Merge `release/7.0.1` into the active embargoed branch by hand (the merge forward), push it, and the hotfix is built again. |
 | **Merge the release into the hotfix**: warning `No release to build the hotfix on` | Not a failure: the release has not been built. Push the frozen embargoed branch, and push the active embargoed branch again. |

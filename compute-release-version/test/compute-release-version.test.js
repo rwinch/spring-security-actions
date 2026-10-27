@@ -319,14 +319,42 @@ describe("noTrainSummary", () => {
     );
   });
 
-  it("names the OSS version of a hotfix, and says where its milestone is", () => {
+  it("tells to create the milestone of a hotfix in the commercial repository, with any due date, as the workflow sets it", () => {
     const summary = noTrainSummary({
       candidate: "7.0.1.1",
       repository: "acme/widgets-commercial",
     });
     expect(summary).toContain(
+      "acme/widgets-commercial has no milestone 7.0.1.1.",
+    );
+    expect(summary).toContain(
+      "[create the milestone 7.0.1.1](https://github.com/acme/widgets-commercial/milestones/new) in acme/widgets-commercial, and run the workflow again",
+    );
+    expect(summary).toContain(
+      "The title puts 7.0.1.1 in the release train of the OSS version 7.0.1",
+    );
+    expect(summary).toContain(
+      "commercial general availability of that train, which the workflow sets",
+    );
+    expect(summary).toContain("so any date will do");
+    // not the date of the train, as the milestone of a release has
+    expect(summary).not.toContain("a due date that matches a release train");
+    expect(summary).toContain(
       "7.0.1.1 is a hotfix of the OSS version 7.0.1, and is released from the commercial repository: its milestone is in acme/widgets-commercial, not in the OSS repository.",
     );
+  });
+
+  it("tells that a hotfix milestone without a due date is set from the train", () => {
+    const summary = noTrainSummary({
+      candidate: "7.0.1.1",
+      repository: "acme/widgets-commercial",
+      milestone: {
+        html_url: "https://github.com/acme/widgets-commercial/milestone/3",
+      },
+    });
+    expect(summary).toContain("has no due date.");
+    expect(summary).toContain("Its due date is set from the release train");
+    expect(summary).not.toContain("set its due date](");
   });
 });
 

@@ -1,9 +1,9 @@
 name: "join-train"
-description: "Joins a release of the project to the release train, by running the Join workflow of the release train repository on the branch of the train"
+description: "Joins a release of the project to the release train, by running the workflow Release Train - Join (release-train-join.yml) of the project on the release branch"
 
 inputs:
   release-train-repository:
-    description: "The release train repository, owner/repo."
+    description: "The release train repository, owner/repo. The workflow of the project is told it."
     required: true
   train-branch:
     description: "The branch of the train, for example 2026.11.19, the output `branch` of `load-train`."
@@ -25,21 +25,14 @@ inputs:
     description: "The version of the release, for example `7.0.1`."
     required: true
   release-repository:
-    description: "The repository (owner/repo) of the release branch, for example `spring-projects/spring-security-commercial`."
+    description: "The repository (owner/repo) of the release branch, which has the workflow release-train-join.yml, for example `spring-projects/spring-security-commercial`."
     required: true
   release-branch:
-    description: "The release branch that joins, for example `release/7.0.1`. It must exist."
+    description: "The release branch that joins, for example `release/7.0.1`. It must exist, and have the workflow release-train-join.yml: the workflow is run on it."
     required: true
   deployment-destination:
-    description: "Where the release is deployed to: `maven-central` or `spring-enterprise`."
+    description: "Where the release is deployed to, as the choice of the workflow Release Train - Join of the project names it: `Maven Central`, `Spring Enterprise` or `Spring Enterprise Extended`."
     required: true
-  commit-hash:
-    description: "The hash of the last commit of the release branch. Optional: the commit that the branch is at in the repository at `path` if it is not given, and the train reads it from the branch if there is none."
-    required: false
-  path:
-    description: "The directory of the git repository that has the release branch, to find its commit."
-    required: false
-    default: "."
   token:
     description: "A token that may run workflows of the release train repository (Actions: write)."
     required: true

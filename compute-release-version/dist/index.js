@@ -36667,13 +36667,34 @@ const TRAIN_HELP =
  * The summary for a release that cannot join a release train yet, because its milestone
  * does not exist or has no due date: what to create or change, with links to do it. A
  * hotfix (7.0.1.1) is released from the commercial repository, so its milestone is
- * created there, and the summary names the OSS version it is a hotfix of.
+ * created there, and the summary names the OSS version it is a hotfix of. Its due date is
+ * not the date of the train, as a release's is, but the commercial general availability of
+ * the train of the OSS version, which the workflow sets.
  */
 function noTrainSummary({ candidate, repository, milestone }) {
   const hotfix = /^\d+\.\d+\.\d+\.\d+$/.test(candidate)
     ? candidate.slice(0, candidate.lastIndexOf("."))
     : undefined;
   const lines = [`### ${candidate} is not in a release train`, ""];
+  if (hotfix) {
+    // A hotfix is in the train of the OSS version that it fixes, which its title says, and
+    // its milestone is due on the commercial general availability of that train: the
+    // workflow sets it, so the date that it is created with does not matter.
+    lines.push(
+      milestone
+        ? `The milestone ${candidate} of ${repository} has no due date.`
+        : `${repository} has no milestone ${candidate}.`,
+      "",
+      milestone
+        ? `Its due date is set from the release train when the workflow runs again.`
+        : `To build the hotfix, [create the milestone ${candidate}](${SERVER()}/${repository}/milestones/new) in ${repository}, and run the workflow again.`,
+      "",
+      `The title puts ${candidate} in the release train of the OSS version ${hotfix}: the train that the milestone ${hotfix} of the OSS repository is due. Its due date is the commercial general availability of that train, which the workflow sets (for example, that of the train 2026.11.19 is 2026-12-24), so any date will do.`,
+      "",
+      `${candidate} is a hotfix of the OSS version ${hotfix}, and is released from the commercial repository: its milestone is in ${repository}, not in the OSS repository.`,
+    );
+    return `${lines.join("\n")}\n`;
+  }
   if (milestone) {
     lines.push(
       `The milestone ${candidate} of ${repository} has no due date.`,
@@ -36685,12 +36706,6 @@ function noTrainSummary({ candidate, repository, milestone }) {
       `${repository} has no milestone ${candidate}.`,
       "",
       `To add it to a release train, [create the milestone ${candidate}](${SERVER()}/${repository}/milestones/new) in ${repository} with ${TRAIN_HELP}, and run the workflow again.`,
-    );
-  }
-  if (hotfix) {
-    lines.push(
-      "",
-      `${candidate} is a hotfix of the OSS version ${hotfix}, and is released from the commercial repository: its milestone is in ${repository}, not in the OSS repository.`,
     );
   }
   return `${lines.join("\n")}\n`;
