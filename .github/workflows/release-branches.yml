@@ -151,6 +151,16 @@ jobs:
           milestone-repository: ${{ steps.repositories.outputs.oss-repository }}
           milestone-token: ${{ secrets.GITHUB_TOKEN }}
           fail-if-missing: "false"
+      # A frozen or active embargoed branch is for a generation that is still OSS when the release
+      # is made public (the date of its train). Once it is commercial, it has one embargoed/lts branch.
+      - name: Check that the generation is still supported as OSS
+        if: steps.plan.outputs.kind != 'lts' && steps.release.outputs.found == 'true' && steps.train-milestone.outputs.found != 'false'
+        uses: spring-io/spring-security-actions/check-oss-support@2c5d9e45421604e275308da1fb9d8a4db44080c6 # 0.0.12
+        with:
+          project: ${{ steps.repositories.outputs.project }}
+          version: ${{ steps.release.outputs.release-version }}
+          date: ${{ steps.train-milestone.outputs.due-date || steps.release.outputs.due-date }}
+          branch: ${{ github.ref_name }}
 
   build:
     name: Build the branches
