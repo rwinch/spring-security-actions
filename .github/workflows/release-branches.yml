@@ -76,7 +76,7 @@ jobs:
     name: Plan
     runs-on: ${{ inputs.runs-on || 'ubuntu-latest' }}
     outputs:
-      release: ${{ steps.plan.outputs.release == 'true' && (steps.plan.outputs.kind != 'active' || steps.compare.outputs.different == 'true') && steps.release.outputs.found != 'false' }}
+      release: ${{ steps.plan.outputs.release == 'true' && (steps.plan.outputs.kind != 'active' || steps.compare.outputs.different == 'true') && steps.release.outputs.found != 'false' && steps.train-milestone.outputs.found != 'false' }}
       kind: ${{ steps.plan.outputs.kind }}
       base-version: ${{ steps.plan.outputs.base-version }}
       hotfix: ${{ steps.plan.outputs.hotfix }}
@@ -140,7 +140,8 @@ jobs:
           require-due-date: ${{ steps.plan.outputs.kind != 'active' }}
       # A hotfix is in the release train of its OSS equivalent: the train that the milestone of the
       # release it fixes (7.0.1 for 7.0.1.1) is due. The due date of the milestone of the hotfix is
-      # when it is commercially available, and that is after the train that builds it.
+      # when it is commercially available, and that is after the train that builds it. Like the
+      # milestone of a release, if it does not exist, nothing is built, and the run ends with a notice.
       - name: Work out the date of the release train of the hotfix
         id: train-milestone
         if: steps.plan.outputs.kind == 'active' && steps.release.outputs.found == 'true'
@@ -149,6 +150,7 @@ jobs:
           snapshot-version: ${{ format('{0}-SNAPSHOT', steps.plan.outputs.hotfix-of-version) }}
           milestone-repository: ${{ steps.repositories.outputs.oss-repository }}
           milestone-token: ${{ secrets.GITHUB_TOKEN }}
+          fail-if-missing: "false"
 
   build:
     name: Build the branches
@@ -312,7 +314,7 @@ jobs:
       # release, the one that was set above for a hotfix. A release that has joined is not joined
       # again, so a run by hand after the due date of a milestone was set joins what was missed.
       - name: Join the release train
-        uses: spring-io/spring-security-actions/join-train@7e4ff06db82a0c52ec03458bbb800208f0ef0cf5 # 0.0.11
+        uses: spring-io/spring-security-actions/join-train@2aaa8d52713a64f8a15c06b02dfd841d9c01341d # 0.0.12
         with:
           release-train-repository: ${{ inputs.release-train-repository || 'spring-io/release-train' }}
           train-branch: ${{ steps.train.outputs.branch }}
