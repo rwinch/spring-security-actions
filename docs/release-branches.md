@@ -2,6 +2,19 @@
 
 A push to an embargoed branch of the commercial repository builds the branches of its release, with no one doing it by hand. This is the guide to it: what it builds, what it needs, how to give it the secrets that it needs, and what to do when it fails.
 
+## Setup checklist
+
+What a project needs before a push builds anything. Each point has its section below.
+
+1. **The caller workflow** in the commercial repository, `.github/workflows/release-branches.yml`, on every embargoed branch (it comes with the merges forward): it runs for a push to `embargoed/frozen/**`, `embargoed/active/**` and `embargoed/lts/**`, and by hand (`workflow_dispatch`), and calls the reusable workflow at a commit of a tag. See [Calling it](#calling-it).
+2. **The secret** `RELEASE_AUTOMATION_TOKEN` in the commercial repository, and the variables `UBUNTU_RUNS_ON` (the runners of the organization) and, if it is not `spring-io/release-train`, `RELEASE_TRAIN_REPOSITORY`. See [the tokens](#the-secret-the-variable-and-the-tokens).
+3. **The version** of `gradle.properties` of an embargoed branch is `<major>.<minor>.<patch>-SNAPSHOT` (`7.0.9-SNAPSHOT`), also on an active one: its hotfix, `7.0.9.1`, is worked out from it.
+4. **The milestone of the release**, with a due date. A release or an LTS version (`7.0.9`, `5.8.30`): in the OSS repository, and in the commercial repository for an LTS version. A hotfix (`7.0.9.1`): in the commercial repository, and the milestone of the version that it fixes (`7.0.9`) in the OSS repository, which decides its release train. If one is missing, the run ends with the notice **No milestone**, and builds nothing.
+5. **The release train** branch of the due date of that milestone in the release train repository (it may not exist yet: then the branches are built without the dependency updates, and nothing joins). See [the release train](#the-release-train).
+6. **The version catalog**, `gradle/libs.versions.toml`, has a `[versions]` entry named after each project of the train, one per line: `spring-framework = "7.0.9"`.
+7. **The workflow `release-train-join.yml`** ("Release Train - Join") on the release branches (it is on the embargoed branches, so the release branches have it), which joins the train. See [what a run does](#what-a-run-does-in-order).
+8. **A `build.gradle` or `build.gradle.kts` in the root**, for the commercial license of a hotfix (the Broadcom license of the POM is applied from there).
+
 ## What a push builds
 
 The reusable workflow [`release-branches.yml`](../.github/workflows/release-branches.yml) of this repository, and the actions that it uses (each is a directory of this repository, with a README). The project calls it for a push to `embargoed/frozen/**`, `embargoed/active/**` or `embargoed/lts/**`. It builds the branches of the release again from the pushed commit, every time, and pushes them once, both or none, forced. Nobody commits to them.
@@ -40,6 +53,33 @@ The **milestone** of the release, and the **issues** of its dependency updates, 
 **Joining the train.** When the branches are pushed, the release joins the train by running the workflow `Release Train - Join` (`release-train-join.yml`) of **the project** on the release branch `release/7.0.1`, with the destination (`Maven Central` for a frozen embargoed branch, `Spring Enterprise` for a hotfix, which is commercial), the train branch and the release train repository. That workflow has the token for the release train, runs `Join` there with the commit of the release branch, and waits for it, so a failed join is in its run, which the summary links to. The commercial repository needs that workflow on its branches (the workflow generator makes it). It joins only if the train exists and does not have the release yet, so a run that is made again does not join twice. The due date of the milestone of a hotfix is first set to `schedule.publication.commercial-general-availability` of its train (at noon UTC), if it is another or has none: the notice **Milestone due date** says so. The train of a hotfix is the one of its OSS equivalent, so the milestone of `7.0.1` in the OSS repository decides it. If that milestone does not exist, the run ends with the notice **No milestone**, as for any milestone, and builds nothing. To join after a milestone was fixed, run the workflow by hand on the embargoed branch (`workflow_dispatch`).
 
 Which versions of the dependencies the release needs comes from the **release train**, a repository with a branch for each release date (`2026.11.19`) that has `release-versions.json` and `train.yml`. The branch is the date that the milestone of the release is due. For a hotfix it is the date that the OSS milestone of the release it fixes is due (`7.0.1` for `7.0.1.1`): the due date of the hotfix is when it is commercially available, after the train that builds it. If that train has not been created, the branches are built without the dependency updates. If the release is **ready** in the train, it is not changed: the run fails and says what to do.
+
+### The release train
+
+The release train repository (`spring-io/release-train`, or `RELEASE_TRAIN_REPOSITORY`) has a branch for every release date (`2026.11.19`), with two files:
+- `release-versions.json`: the versions of every project of the train (`{ "spring-framework": ["7.0.10", "7.0.10.1"], ... }`).
+- `train.yml`: its state, its schedule (`schedule.publication.commercial-general-availability` is the date that a hotfix is available) and, for every release, the commit hashes of the steps that it went through (`joined`, `ready`, `built`, `tested`).
+
+The workflow reads the branch of the date, so the milestone's due date must be a date of a train. A train that has not been created is not an error, and neither is a release that has not joined. It does not change a release that is **ready**. The dependency updates are only the ones of the versions that **have joined** the train.
+
+## What a run does, in order
+
+**The plan job** decides, and builds nothing:
+1. Reads the version of `gradle.properties`, and decides what to build from the branch: frozen, active (a hotfix) or LTS.
+2. For an active branch, compares it with the frozen branch of its generation: with no changes of its own, it ends with **Nothing to build**.
+3. For a hotfix, looks for the milestone of the version it fixes in the OSS repository (that is the date of its release train), and for a `.0` version it is only built if the next release is the GA.
+4. Looks for the milestone of the release. A release is in the OSS repository, a hotfix or an LTS version in the commercial one. If there is none: **No milestone**, and nothing is built.
+5. For frozen and active branches, checks that the generation is still OSS on the date of the train.
+
+**The build job** builds the branches, in one checkout, and pushes them at the end, both or none:
+1. Reads the release train of the date (**No release train**, a notice, if it has not been created: the dependency steps are skipped, and nothing joins). For a hotfix, sets the due date of its milestone to the commercial general availability of the train.
+2. Fails if the release is **ready** in the train already.
+3. Builds the snapshot branch (not for an LTS branch): from the pushed commit, for a hotfix with the release merged in and the commercial license applied. Its dependencies are snapshots of the versions that have joined the train, with no issues: the branch is thrown away or replaced.
+4. Builds the release branch: from the pushed commit, for a hotfix from the snapshot branch. It works out the versions of the dependencies from the train, **creates an issue for each update that has none**, makes one commit for each (`Update spring-framework to 7.0.10`, with `Closes gh-123` of that issue), and then the commit of the version, `Release 7.0.9`. The issues are in the milestone of the release, in the OSS repository for a release, and in the commercial repository for a hotfix or an LTS version (the milestone is there, and a milestone in the OSS repository would tell everyone about a hotfix). Their title is `Update <dependency> to <version>`, with the label `type: dependency-upgrade`.
+5. Pushes the branches, and the summary of the run has them, with the milestone and the release train.
+6. Joins the release train: runs the workflow `release-train-join.yml` of the project on the release branch, with the destination (`Maven Central` for a frozen branch, `Spring Enterprise` for a hotfix or an LTS version), unless the release is in `train.yml` already. A join that fails is in the run of that workflow, which the summary links to.
+
+**Which versions the updates take** (`map-train-versions`): for each entry of `[versions]` named after a project of the train, the newest version of the train of the same generation (`7.0.x`) that has joined it (a hotfix version only for a hotfix, never for a release or an LTS version). It never goes down: a catalog that has a newer version than the train fails. A version that has the value already is left alone, so a run that is made again changes nothing twice. An issue of an update that someone **closed** is a decision not to update it: it is said in a notice, and there is no commit for it. See the READMEs of `map-train-versions`, `ensure-dependency-issues` and `update-versions`.
 
 ## Calling it
 
