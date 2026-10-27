@@ -28624,13 +28624,14 @@ var __webpack_exports__ = {};
 
 // EXPORTS
 __nccwpck_require__.d(__webpack_exports__, {
-  cC: () => (/* binding */ BROADCOM_COPYRIGHT),
   fC: () => (/* binding */ BUNDLED_LICENSE),
+  b0: () => (/* binding */ BUNDLED_LICENSE_SCRIPT),
+  C_: () => (/* binding */ CHECKSTYLE_HEADER),
   m9: () => (/* binding */ DEFAULT_HEADER_FILES),
+  KH: () => (/* binding */ LICENSE_SCRIPT),
   W4: () => (/* binding */ applyCommercialLicense),
   MF: () => (/* binding */ licenseTargetOf),
-  iW: () => (/* binding */ main),
-  As: () => (/* binding */ replaceHeader)
+  iW: () => (/* binding */ main)
 });
 
 ;// CONCATENATED MODULE: external "node:fs"
@@ -31643,6 +31644,248 @@ function gitTry(directory, ...args) {
   };
 }
 
+;// CONCATENATED MODULE: ./src/headers.js
+/**
+ * The copyright header of a source file, and its rewrite to the one shape of the
+ * commercial repositories (what secd licensing broadcom does):
+ *
+ *   Copyright <YEAR> Broadcom Inc. and/or its subsidiaries. All Rights Reserved.
+ *   Copyright <YEAR>-present the original author or authors.
+ *
+ * <YEAR> is one year for the whole project, so that etc/checkstyle/header.txt can have it
+ * as a literal. The line of the authors is the one with a year of its own, so it takes
+ * that year. Every other copyright line (the Acegi one, which has years of its own, and
+ * the lines of other holders) is kept, as it was, after it. The license text is left out.
+ *
+ * The header is the comment at the very start of the file, in the syntax of its file: a
+ * block comment (Java, AspectJ, Groovy, Kotlin, JavaScript, .gradle), a block of # lines
+ * (.properties), or an XML comment after the prolog (.xml, .tld). It is a header only if
+ * it says that it is licensed under the Apache License, or has the Broadcom line already,
+ * and has a copyright line. Anything else is not touched.
+ */
+
+const C_STYLE_SUFFIXES = [
+  ".java",
+  ".aj",
+  ".groovy",
+  ".kt",
+  ".gradle",
+  ".gradle.kts",
+  ".js",
+];
+const HASH_SUFFIXES = [".properties"];
+const XML_SUFFIXES = [".xml", ".tld"];
+
+const APACHE = "Licensed under the Apache License";
+const BROADCOM = "Broadcom Inc. and/or its subsidiaries";
+const BROADCOM_LINE =
+  /^Copyright\s+(\d{4})\s+Broadcom Inc\. and\/or its subsidiaries\. All Rights Reserved\.$/;
+const AUTHORS_LINE =
+  /^Copyright\s+[\d,\s-]*?(?:present)?\s*the original author or authors\.?$/;
+const ACEGI_LINE = /Acegi Technology Pty/;
+
+function broadcomLine(year) {
+  return `Copyright ${year} Broadcom Inc. and/or its subsidiaries. All Rights Reserved.`;
+}
+
+function authorsLine(year) {
+  return `Copyright ${year}-present the original author or authors.`;
+}
+
+/** The kind of header a file has by its name, or undefined if it is not one of them. */
+function kindOf(file) {
+  const has = (suffixes) => suffixes.some((suffix) => file.endsWith(suffix));
+  if (has(C_STYLE_SUFFIXES)) return "c-style";
+  if (has(HASH_SUFFIXES)) return "hash";
+  if (has(XML_SUFFIXES)) return "xml";
+  return undefined;
+}
+
+function years(text) {
+  return [...text.matchAll(/\b(\d{4})\b/g)].map((match) => Number(match[1]));
+}
+
+// What the header of a kind looks like around its lines.
+const SYNTAX = {
+  "c-style": {
+    flatten: (line) => line.trim().replace(/^\*/, "").trim(),
+    render: (lines) => ["/*", ...lines.map((l) => ` * ${l}`), " */"],
+  },
+  hash: {
+    flatten: (line) => line.trim().replace(/^#/, "").trim(),
+    render: (lines) => lines.map((l) => `# ${l}`),
+  },
+  xml: {
+    flatten: (line) => line.trim().replace(/^~/, "").trim(),
+    render: (lines) => ["<!--", ...lines.map((l) => `  ~ ${l}`), "  -->"],
+  },
+};
+
+/**
+ * Where the header is in a text: { start, end, lines } with the text of its lines flattened
+ * to bare text, or undefined if the file does not start with a comment of that kind.
+ * The text from start to end is what is replaced.
+ */
+function locate(text, kind) {
+  if (kind === "c-style") {
+    // Kotlin files can have file annotations (@file:Suppress(...)) before the header
+    const match =
+      /^((?:[ \t]*\r?\n|@file:[^\r\n]*\r?\n)*)\/\*[ \t]*\r?\n([\s\S]*?)\*\//.exec(
+        text,
+      );
+    if (!match || match[2].split("\n").length > 60) {
+      return undefined;
+    }
+    const interior = match[2].replace(/\r?\n[ \t]*$/, "");
+    return {
+      start: match[1].length,
+      end: match[0].length,
+      lines: interior.split(/\r?\n/),
+    };
+  }
+  if (kind === "hash") {
+    if (text.startsWith("#!")) {
+      return undefined;
+    }
+    const match = /^(?:#[^\r\n]*(?:\r?\n|$))+/.exec(text);
+    if (!match) {
+      return undefined;
+    }
+    const block = match[0].replace(/\r?\n$/, "");
+    return { start: 0, end: block.length, lines: block.split(/\r?\n/) };
+  }
+  const match =
+    /^((?:<\?xml[^\r\n]*\r?\n)?(?:[ \t]*\r?\n)*)<!--[ \t]*\r?\n([\s\S]*?)\r?\n[ \t]*-->/.exec(
+      text,
+    );
+  if (!match || match[2].split("\n").length > 60) {
+    return undefined;
+  }
+  return {
+    start: match[1].length,
+    end: match[0].length,
+    lines: match[2].split(/\r?\n/),
+  };
+}
+
+/**
+ * The header of a text: { location, copyrights, years } or undefined if there is none that
+ * this changes. copyrights are the copyright lines of the header, as bare text, without the
+ * Broadcom one. years are the years of the copyright of the project in it: those of the
+ * authors line, of the Acegi line and of the Broadcom line, and not those of other holders.
+ */
+function parseHeader(text, kind) {
+  const location = locate(text, kind);
+  if (!location) {
+    return undefined;
+  }
+  const flat = location.lines.map(SYNTAX[kind].flatten).filter(Boolean);
+  const joined = flat.join(" ");
+  if (!joined.includes(APACHE) && !joined.includes(BROADCOM)) {
+    return undefined;
+  }
+  const copyrights = [];
+  const found = [];
+  for (const line of flat) {
+    const broadcom = BROADCOM_LINE.exec(line);
+    if (broadcom) {
+      found.push(Number(broadcom[1]));
+    } else if (/^Copyright\b/.test(line)) {
+      copyrights.push(line);
+      if (AUTHORS_LINE.test(line) || ACEGI_LINE.test(line)) {
+        found.push(...years(line));
+      }
+    }
+  }
+  if (copyrights.length === 0 && found.length === 0) {
+    return undefined;
+  }
+  return { location, flat, copyrights, years: found };
+}
+
+/** The lines of the header with a year: the Broadcom line, then the copyrights. */
+function canonicalLines(header, year) {
+  const lines = [broadcomLine(year)];
+  let authors = false;
+  for (const line of header.copyrights) {
+    if (AUTHORS_LINE.test(line)) {
+      if (!authors) {
+        lines.push(authorsLine(year));
+        authors = true;
+      }
+    } else {
+      lines.push(line);
+    }
+  }
+  return lines;
+}
+
+/**
+ * The text with its header in the canonical shape for the year, or the same text if it has
+ * none or it is that already. The line endings of the file are kept.
+ */
+function rewriteHeader(text, kind, year) {
+  const header = parseHeader(text, kind);
+  if (!header) {
+    return text;
+  }
+  const lines = canonicalLines(header, year);
+  if (
+    header.flat.length === lines.length &&
+    header.flat.every((line, i) => line === lines[i])
+  ) {
+    return text;
+  }
+  const eol = text.includes("\r\n") ? "\r\n" : "\n";
+  const replacement = SYNTAX[kind].render(lines).join(eol);
+  const { start, end } = header.location;
+  return text.slice(0, start) + replacement + text.slice(end);
+}
+
+/** The years of the project in the header of a text, none if there is no header. */
+function yearsOf(text, kind) {
+  return parseHeader(text, kind)?.years ?? [];
+}
+
+/**
+ * The checkstyle header (etc/checkstyle/header.txt, a line of regular expressions for
+ * every line of the header of a file) of the canonical headers of a year.
+ */
+function checkstyleHeader(year) {
+  return [
+    "^\\Q/*\\E$",
+    `^\\Q * Copyright \\E${year}\\Q Broadcom Inc. and/or its subsidiaries. All Rights Reserved.\\E$`,
+    `^\\Q * Copyright \\E(${year}-present the original author or authors.|\\d{4}(, \\d{4})* Acegi Technology Pty Limited)$`,
+    "^\\Q */\\E$",
+    "^$",
+    "",
+  ].join("\n");
+}
+
+/**
+ * The predicate of the files that checkstyle is told to skip completely, by a suppression
+ * with checks=".*" in a checkstyle-suppressions.xml (third-party code that is checked in:
+ * BCrypt.java). Their headers are not ours to change. A suppression's files is a regular
+ * expression that is searched for in the path, as checkstyle does.
+ */
+function suppressedBy(suppressionFiles) {
+  const patterns = [];
+  for (const xml of suppressionFiles) {
+    for (const tag of xml.matchAll(/<suppress\b[^>]*>/g)) {
+      const attribute = (name) =>
+        new RegExp(`\\b${name}\\s*=\\s*"([^"]*)"`).exec(tag[0])?.[1];
+      if (attribute("checks") === ".*" && attribute("files")) {
+        try {
+          patterns.push(new RegExp(attribute("files")));
+        } catch {
+          // not a regular expression of JavaScript: checkstyle's is Java's, so skip it
+        }
+      }
+    }
+  }
+  return (file) => patterns.some((pattern) => pattern.test(file));
+}
+
 ;// CONCATENATED MODULE: ./src/run.js
 
 
@@ -31696,16 +31939,12 @@ async function execute(action) {
 
 
 
-const BROADCOM_NOTICE =
-  "Copyright 2004 Broadcom Inc. and/or its subsidiaries. All Rights Reserved.";
-const BROADCOM_COPYRIGHT = ` * ${BROADCOM_NOTICE}`;
 
 /**
  * The files whose header is changed, as git pathspecs: the sources of the Spring projects
- * (Java, AspectJ, Groovy, Kotlin, and the JavaScript of Spring Security) and
- * gradle.properties, which has the header as a block of # lines. Anything else that has an
- * Apache header (XML, CSS, .gradle files) is left as it is, as it is in the commercial
- * repositories, and so are gradlew and gradlew.bat, which have the header of Gradle.
+ * (Java, AspectJ, Groovy, Kotlin, the JavaScript of Spring Security, and the build files),
+ * and the XML and the properties files. gradlew and gradlew.bat have the header of Gradle,
+ * which is not ours to change, and are not named.
  */
 const DEFAULT_HEADER_FILES = [
   "*.java",
@@ -31713,92 +31952,30 @@ const DEFAULT_HEADER_FILES = [
   "*.groovy",
   "*.kt",
   "*.js",
-  "gradle.properties",
+  "*.gradle",
+  "*.gradle.kts",
+  "*.properties",
+  "*.xml",
+  "*.tld",
 ];
+
+const CHECKSTYLE_HEADER = "etc/checkstyle/header.txt";
+const LICENSE_SCRIPT = "gradle/broadcom-license.gradle";
 
 // The commercial license, which is bundled with the action: it is the file LICENSE.txt
 // next to action.yml. The program is in src/apply-commercial-license/ or in
 // dist/apply-commercial-license/, the same depth, so it is found from both.
-const BUNDLED_LICENSE = external_node_path_namespaceObject.join(
-  external_node_path_namespaceObject.dirname((0,external_node_url_.fileURLToPath)(import.meta.url)),
-  "..",
-  "..",
-  "apply-commercial-license",
-  "LICENSE.txt",
-);
-
-/**
- * The text of a source file with its Apache license header replaced by the Broadcom one:
- * a Broadcom copyright line first, then the copyright lines that the header had, as they
- * were, and the license text left out.
- *
- *   /*
- *    * Copyright 2004 Broadcom Inc. and/or its subsidiaries. All Rights Reserved.
- *    * Copyright 2002-2026 the original author or authors.
- *    *\/
- *
- * The header is the comment at the very start of the file: a block comment, or for a file
- * that starts with # (gradle.properties) the block of # lines. It is only changed if it
- * says that it is licensed under the Apache License. A file that has another header, or
- * the Broadcom one already, is returned as it is, so it is safe to do more than once. The
- * line endings of the file are kept.
- */
-function replaceHeader(text) {
-  if (text.startsWith("#!")) {
-    return text;
-  }
-  const eol = text.includes("\r\n") ? "\r\n" : "\n";
-  if (text.startsWith("#")) {
-    return replaceHashHeader(text, eol);
-  }
-  // Kotlin files can have file annotations (@file:Suppress(...)) before the header
-  const header =
-    /^((?:[ \t]*\r?\n|@file:[^\r\n]*\r?\n)*)\/\*([\s\S]*?)\*\//.exec(text);
-  if (!header || !isApache(header[2])) {
-    return text;
-  }
-  const copyrights = header[2]
-    .split(/\r?\n/)
-    .filter((line) => /^\s*\*\s*Copyright /.test(line));
-  const replacement = ["/*", BROADCOM_COPYRIGHT, ...copyrights, " */"].join(
-    eol,
+const BUNDLED = (file) =>
+  external_node_path_namespaceObject.join(
+    external_node_path_namespaceObject.dirname((0,external_node_url_.fileURLToPath)(import.meta.url)),
+    "..",
+    "..",
+    "apply-commercial-license",
+    file,
   );
-  return header[1] + replacement + text.slice(header[0].length);
-}
-
-function isApache(comment) {
-  return comment.includes("Licensed under the Apache License");
-}
-
-/**
- * The header of a file that starts with a block of # lines. A bare # line that opens or
- * closes the block is kept, so that the block looks as it did:
- *
- *   #
- *   # Copyright 2004 Broadcom Inc. and/or its subsidiaries. All Rights Reserved.
- *   # Copyright 2004-present the original author or authors.
- *   #
- */
-function replaceHashHeader(text, eol) {
-  const lines = text.split(/\r?\n/);
-  let end = 0;
-  while (end < lines.length && lines[end].startsWith("#")) {
-    end++;
-  }
-  const block = lines.slice(0, end);
-  if (!isApache(block.join("\n"))) {
-    return text;
-  }
-  const bare = (line) => line.trim() === "#";
-  const copyrights = block.filter((line) => /^#\s*Copyright /.test(line));
-  const replacement = [
-    ...(bare(block[0]) ? ["#"] : []),
-    `# ${BROADCOM_NOTICE}`,
-    ...copyrights,
-    ...(bare(block[block.length - 1]) ? ["#"] : []),
-  ];
-  return [...replacement, ...lines.slice(end)].join(eol);
-}
+const BUNDLED_LICENSE = BUNDLED("LICENSE.txt");
+// The script that sets the license of the POM, which is bundled the same way
+const BUNDLED_LICENSE_SCRIPT = BUNDLED("broadcom-license.gradle");
 
 /**
  * The path of the license in the repository, relative to it. It is the given one, or the
@@ -31868,17 +32045,90 @@ function writableLicense(directory, target) {
   return relative.split(external_node_path_namespaceObject.sep).join("/");
 }
 
+/** The text of a file, and the encoding that it has: .properties files can be ISO-8859-1. */
+function readText(full) {
+  const raw = external_node_fs_namespaceObject.readFileSync(full);
+  try {
+    return {
+      text: new TextDecoder("utf-8", { fatal: true }).decode(raw),
+      encoding: "utf8",
+    };
+  } catch {
+    return { text: raw.toString("latin1"), encoding: "latin1" };
+  }
+}
+
+/** The root build file that applies the script of the license: build.gradle, or the .kts one. */
+function rootBuildFileOf(directory) {
+  for (const name of ["build.gradle", "build.gradle.kts"]) {
+    if (external_node_fs_namespaceObject.existsSync(external_node_path_namespaceObject.join(directory, name))) {
+      return name;
+    }
+  }
+  throw new Error(
+    "The repository has no build.gradle or build.gradle.kts in its root to apply the Broadcom license of the POM from",
+  );
+}
+
+/**
+ * Makes the build apply the script that sets the license of the POM to Broadcom's: the
+ * script is gradle/broadcom-license.gradle, and the root build file gets a line at its end
+ * that applies it. Gradle only reads the init.d of a project if the build copies it to
+ * ~/.gradle/init.d, which not every build does, and this works for all of them. Both the
+ * script and the line are left as they are if they are there. It returns the files that it
+ * changed.
+ */
+function applyPomLicense(directory, scriptFile, log) {
+  const rootBuild = rootBuildFileOf(directory);
+  const changed = [];
+  const script = external_node_fs_namespaceObject.readFileSync(scriptFile);
+  const scriptPath = external_node_path_namespaceObject.join(directory, LICENSE_SCRIPT);
+  if (
+    !external_node_fs_namespaceObject.existsSync(scriptPath) ||
+    !external_node_fs_namespaceObject.readFileSync(scriptPath).equals(script)
+  ) {
+    external_node_fs_namespaceObject.mkdirSync(external_node_path_namespaceObject.dirname(scriptPath), { recursive: true });
+    external_node_fs_namespaceObject.writeFileSync(scriptPath, script);
+    changed.push(LICENSE_SCRIPT);
+    log(`${LICENSE_SCRIPT}: the Broadcom license of the POM`);
+  }
+  const buildPath = external_node_path_namespaceObject.join(directory, rootBuild);
+  const { text, encoding } = readText(buildPath);
+  if (!text.includes("broadcom-license.gradle")) {
+    const eol = text.includes("\r\n") ? "\r\n" : "\n";
+    const line = rootBuild.endsWith(".kts")
+      ? `apply(from = "$rootDir/${LICENSE_SCRIPT}")`
+      : `apply from: "$rootDir/${LICENSE_SCRIPT}"`;
+    const separator = text.endsWith("\n") || text === "" ? "" : eol;
+    external_node_fs_namespaceObject.writeFileSync(
+      buildPath,
+      Buffer.from(text + separator + line + eol, encoding),
+    );
+    changed.push(rootBuild);
+    log(`${rootBuild}: applies ${LICENSE_SCRIPT}`);
+  }
+  return changed;
+}
+
 /**
  * Changes the files of a git repository to the commercial ones, which is only done for a
- * hotfix: the license header of the source files (headerFiles), and the license of the
- * project. It returns what it changed. If it is given a message, it commits that, signed
+ * hotfix (or for the code that becomes long-term support): the license header of the
+ * source files (headerFiles) in one canonical shape with one year for the project, the
+ * checkstyle header if the project has one, the license of the project, and the license of
+ * the POM. It returns what it changed. If it is given a message, it commits that, signed
  * off, as the identity that git is set up with.
+ *
+ * The year is the one given, or the oldest year of the copyright of the project in the
+ * headers (those of other holders do not count). The files that a suppression of
+ * checkstyle covers entirely are third-party code, and are not changed.
  */
 function applyCommercialLicense({
   directory,
   licenseFile = BUNDLED_LICENSE,
+  licenseScript = BUNDLED_LICENSE_SCRIPT,
   licenseTarget = "",
   headerFiles = DEFAULT_HEADER_FILES,
+  year = "",
   commitMessage = "",
   log = () => {},
 }) {
@@ -31890,20 +32140,55 @@ function applyCommercialLicense({
     directory,
     licenseTargetOf(directory, licenseTarget),
   );
+  rootBuildFileOf(directory);
 
-  const changed = [];
-  const sources =
-    headerFiles.length === 0
+  const tracked = (...pathspecs) =>
+    pathspecs.length === 0
       ? []
-      : git(directory, "ls-files", "-z", "--", ...headerFiles)
+      : git(directory, "ls-files", "-z", "--", ...pathspecs)
           .split("\0")
           .filter(Boolean);
+  const suppressions = tracked(
+    ":(glob)**/checkstyle-suppressions.xml",
+    ":(glob)**/suppressions.xml",
+  ).map((file) => external_node_fs_namespaceObject.readFileSync(external_node_path_namespaceObject.join(directory, file), "utf8"));
+  const suppressed = suppressedBy(suppressions);
+  const sources = tracked(...headerFiles).filter((file) => !suppressed(file));
+
+  let canonical = String(year || "");
+  const checkstyleFile = external_node_path_namespaceObject.join(directory, CHECKSTYLE_HEADER);
+  if (!canonical) {
+    const found = sources.flatMap((file) => {
+      const kind = kindOf(file);
+      return kind
+        ? yearsOf(readText(external_node_path_namespaceObject.join(directory, file)).text, kind)
+        : [];
+    });
+    if (found.length > 0) {
+      canonical = String(Math.min(...found));
+    } else if (!external_node_fs_namespaceObject.existsSync(checkstyleFile)) {
+      canonical = "";
+    } else {
+      throw new Error(
+        "No header with a copyright year was found to take the year of the project from: give the input year",
+      );
+    }
+  }
+  if (!/^(\d{4})?$/.test(canonical)) {
+    throw new Error(`The year ${canonical} is not a year`);
+  }
+
+  const changed = [];
   for (const file of sources) {
+    const kind = kindOf(file);
+    if (!kind || !canonical) {
+      continue;
+    }
     const full = external_node_path_namespaceObject.join(directory, file);
-    const text = external_node_fs_namespaceObject.readFileSync(full, "utf8");
-    const replaced = replaceHeader(text);
-    if (replaced !== text) {
-      external_node_fs_namespaceObject.writeFileSync(full, replaced);
+    const { text, encoding } = readText(full);
+    const rewritten = rewriteHeader(text, kind, canonical);
+    if (rewritten !== text) {
+      external_node_fs_namespaceObject.writeFileSync(full, Buffer.from(rewritten, encoding));
       changed.push(file);
       log(`${file}: the Broadcom header`);
     }
@@ -31920,6 +32205,22 @@ function applyCommercialLicense({
     changed.push(target);
     log(`${target}: the commercial license${had ? "" : " (it had none)"}`);
   }
+
+  // The checkstyle header is only written if the project has one: not every project
+  // checks the headers (Spring Security Kerberos does not).
+  if (canonical && external_node_fs_namespaceObject.existsSync(checkstyleFile)) {
+    const header = checkstyleHeader(canonical);
+    if (external_node_fs_namespaceObject.readFileSync(checkstyleFile, "utf8") !== header) {
+      external_node_fs_namespaceObject.writeFileSync(checkstyleFile, header);
+      changed.push(CHECKSTYLE_HEADER);
+      log(
+        `${CHECKSTYLE_HEADER}: the header of the Broadcom license, ${canonical}`,
+      );
+    }
+  }
+
+  const pom = applyPomLicense(directory, licenseScript, log);
+  changed.push(...pom);
 
   let commit = "";
   if (commitMessage && changed.length > 0) {
@@ -31944,6 +32245,8 @@ function applyCommercialLicense({
     headers,
     java,
     license: changed.includes(target),
+    pom: pom.length > 0,
+    year: canonical,
     commit,
   };
 }
@@ -31957,15 +32260,18 @@ async function main() {
     licenseFile: getInput("license-file") || BUNDLED_LICENSE,
     licenseTarget: getInput("license-target"),
     headerFiles: headerFiles.length > 0 ? headerFiles : DEFAULT_HEADER_FILES,
+    year: getInput("year"),
     commitMessage: getInput("commit-message"),
     log: (line) => info(line),
   });
   info(
-    `${result.headers} headers and ${result.license ? "the license" : "no license"} changed`,
+    `${result.headers} headers and ${result.license ? "the license" : "no license"} changed, year ${result.year || "none"}`,
   );
   setOutput("headers", String(result.headers));
   setOutput("java-files", String(result.java));
   setOutput("license", String(result.license));
+  setOutput("pom-license", String(result.pom));
+  setOutput("year", result.year);
   setOutput("changed", JSON.stringify(result.changed));
   setOutput("commit", result.commit);
 }
@@ -31974,11 +32280,12 @@ if (isMain(import.meta.url)) {
   execute(main);
 }
 
-var __webpack_exports__BROADCOM_COPYRIGHT = __webpack_exports__.cC;
 var __webpack_exports__BUNDLED_LICENSE = __webpack_exports__.fC;
+var __webpack_exports__BUNDLED_LICENSE_SCRIPT = __webpack_exports__.b0;
+var __webpack_exports__CHECKSTYLE_HEADER = __webpack_exports__.C_;
 var __webpack_exports__DEFAULT_HEADER_FILES = __webpack_exports__.m9;
+var __webpack_exports__LICENSE_SCRIPT = __webpack_exports__.KH;
 var __webpack_exports__applyCommercialLicense = __webpack_exports__.W4;
 var __webpack_exports__licenseTargetOf = __webpack_exports__.MF;
 var __webpack_exports__main = __webpack_exports__.iW;
-var __webpack_exports__replaceHeader = __webpack_exports__.As;
-export { __webpack_exports__BROADCOM_COPYRIGHT as BROADCOM_COPYRIGHT, __webpack_exports__BUNDLED_LICENSE as BUNDLED_LICENSE, __webpack_exports__DEFAULT_HEADER_FILES as DEFAULT_HEADER_FILES, __webpack_exports__applyCommercialLicense as applyCommercialLicense, __webpack_exports__licenseTargetOf as licenseTargetOf, __webpack_exports__main as main, __webpack_exports__replaceHeader as replaceHeader };
+export { __webpack_exports__BUNDLED_LICENSE as BUNDLED_LICENSE, __webpack_exports__BUNDLED_LICENSE_SCRIPT as BUNDLED_LICENSE_SCRIPT, __webpack_exports__CHECKSTYLE_HEADER as CHECKSTYLE_HEADER, __webpack_exports__DEFAULT_HEADER_FILES as DEFAULT_HEADER_FILES, __webpack_exports__LICENSE_SCRIPT as LICENSE_SCRIPT, __webpack_exports__applyCommercialLicense as applyCommercialLicense, __webpack_exports__licenseTargetOf as licenseTargetOf, __webpack_exports__main as main };

@@ -1,0 +1,26 @@
+// Sets the license of the published Maven POM of every project that applies the
+// "maven-publish" plugin (however it gets applied: directly, or by the build of the
+// project) to the Broadcom Foundation License, with no URL, in place of whatever license
+// the build set (usually Apache License, Version 2.0).
+//
+// pom.licenses { license { ... } } adds to the licenses, and there is no way to remove
+// one, so the generated XML is rewritten instead: pom.withXml runs on the model that is
+// finished, whatever the order that the plugins were applied in.
+//
+// It is applied by the root build file (apply from: "$rootDir/gradle/broadcom-license.gradle"),
+// and not left in gradle/init.d, because Gradle does not read the init.d of a project:
+// that is only done for the build that copies the files to ~/.gradle/init.d first.
+import org.gradle.api.publish.maven.MavenPublication
+
+allprojects {
+	plugins.withId("maven-publish") {
+		publishing.publications.withType(MavenPublication).configureEach {
+			pom.withXml {
+				def root = asNode()
+				root.licenses.each { root.remove(it) }
+				def license = root.appendNode('licenses').appendNode('license')
+				license.appendNode('name', 'Broadcom Foundation License')
+			}
+		}
+	}
+}
