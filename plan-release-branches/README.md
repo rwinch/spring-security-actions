@@ -20,7 +20,7 @@ A long-term support embargoed branch, `embargoed/lts/7.0.x` (`7.0.1-SNAPSHOT`), 
 
 - A snapshot never carries a milestone or a release candidate: the snapshot of `7.1.0-SNAPSHOT` is `7.1.0-INTERNAL-SNAPSHOT`, and not the version of the release that is built (`7.1.0-RC1`).
 - A hotfix never has an internal snapshot, and a frozen embargoed branch has no hotfix.
-- A version that ends with `.0` on an active embargoed branch is not a patch release, so it has no hotfix: `release` is `false`, and there is nothing to build.
+- A version that ends with `.0` on an active embargoed branch has a hotfix too (`7.2.0.1`), but only once its next release is the GA (`7.2.0`) and not a milestone or a release candidate (`7.2.0-RC1`), which have none. This action plans it, and the release workflow ends the run, with a notice, if the milestone is not the GA.
 
 ## Inputs
 

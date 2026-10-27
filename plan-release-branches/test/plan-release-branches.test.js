@@ -64,12 +64,17 @@ describe("plan", () => {
     });
   });
 
-  it("builds nothing for an active embargoed branch whose version is not a patch release", () => {
+  it("plans the hotfix of a .0 version for an active embargoed branch: the workflow decides if its next release is the GA", () => {
     expect(
       plan({ refName: "embargoed/active/main", version: "7.1.0-SNAPSHOT" }),
-    ).toEqual({
-      release: false,
+    ).toMatchObject({
+      release: true,
       kind: "active",
+      baseVersion: "7.1.0.1-SNAPSHOT",
+      hotfix: true,
+      hotfixOf: "release/7.1.0",
+      hotfixOfVersion: "7.1.0",
+      snapshotBranch: "embargoed/7.1.0.1-SNAPSHOT",
     });
   });
 
@@ -192,16 +197,17 @@ describe.each([["src/index.js"], ["dist/index.js"]])(
       });
     });
 
-    it("writes only release and kind when there is nothing to build", async () => {
+    it("writes the outputs of the hotfix of a .0 version", async () => {
       const result = await runAction(entry, {
         "ref-name": "embargoed/active/main",
         version: "7.1.0-SNAPSHOT",
       });
       expect(result.code).toBe(0);
-      expect(result.outputs).toEqual({ release: "false", kind: "active" });
-      expect(result.stdout).toContain(
-        "it has no hotfix, so there is nothing to build",
-      );
+      expect(result.outputs).toMatchObject({
+        release: "true",
+        "base-version": "7.1.0.1-SNAPSHOT",
+        "hotfix-of-version": "7.1.0",
+      });
     });
 
     it("fails with an error that GitHub shows", async () => {
