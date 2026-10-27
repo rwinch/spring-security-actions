@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { run, summaryLine } from "../src/index.js";
+import { joinRunsUrl, run, summaryLine } from "../src/index.js";
 
 const base = {
   trainRepository: "spring-io/release-train",
@@ -72,6 +72,29 @@ describe("join-train", () => {
     );
     await expect(run({ ...base, train: {} }, { octokit })).rejects.toThrow(
       "Could not dispatch Join in spring-io/release-train: the token needs Actions: Read and write on it (a fine-grained token) or the scope repo (a classic one) (403 Resource not accessible)",
+    );
+  });
+
+  it("links to the runs of Join on the branch of the train, as the run is not known", () => {
+    expect(
+      joinRunsUrl({
+        serverUrl: "https://github.com/",
+        trainRepository: "spring-io/release-train",
+        trainBranch: "2026.11.19",
+      }),
+    ).toBe(
+      "https://github.com/spring-io/release-train/actions/workflows/join.yml?query=branch%3A2026.11.19",
+    );
+    expect(
+      summaryLine({
+        outcome: "joined",
+        trainBranch: "2026.11.19",
+        releaseBranch: "release/7.0.1",
+        destination: "maven_central",
+        joinUrl: "https://x/join",
+      }),
+    ).toBe(
+      "Joined the release train 2026.11.19: dispatched [Join](https://x/join) of release/7.0.1 (maven_central)",
     );
   });
 

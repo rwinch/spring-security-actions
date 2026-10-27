@@ -2,7 +2,7 @@
 
 Joins a release of the project to the release train, by running the workflow `Join` of the release train repository on the branch of the train, with the release repository, the release branch and the deployment destination.
 
-A release that has joined already (its entry in `train.yml` has `commit-hashes.joined`) is not joined again: the action says so in the summary and sets `joined` to `false`.
+A release that has joined already (its entry in `train.yml` has `commit-hashes.joined`) is not joined again: the action says so in the summary and sets `joined` to `false`. When it joins, the summary links to the runs of Join on the branch of the train (dispatching a workflow does not say which run it made).
 
 The token needs **Actions: Read and write** on the release train repository (a fine-grained token), or the scope `repo` (a classic token: no `workflow` scope is needed, that one is for changing workflow files). If GitHub refuses the request, the action fails and says so.
 
