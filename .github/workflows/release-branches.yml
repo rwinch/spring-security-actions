@@ -21,7 +21,7 @@ name: release-branches
 #                                             branch. The branch is commercial, so its milestone
 #                                             and the issues of its dependency updates are in the
 #                                             commercial repository, and it is deployed to
-#                                             spring_enterprise
+#                                             spring-enterprise
 #   A hotfix is only built if the active embargoed branch has changes that the frozen one of
 #   its generation lacks. If it has none (right after the frozen one was merged into it),
 #   nothing is built, and the milestone of the hotfix is not looked for.
@@ -101,7 +101,7 @@ jobs:
         uses: spring-io/spring-release-actions/compute-version@3f7412aeec60ad13127b2a536a1b19a2803a5b81 # 0.0.8
       - name: Decide what to build
         id: plan
-        uses: spring-io/spring-security-actions/plan-release-branches@7e4ff06db82a0c52ec03458bbb800208f0ef0cf5 # 0.0.11
+        uses: spring-io/spring-security-actions/plan-release-branches@f113915e4c575e5ec521e27bd705ef95a35f45be # 0.0.12
         with:
           ref-name: ${{ github.ref_name }}
           version: ${{ steps.version.outputs.version }}
@@ -155,7 +155,7 @@ jobs:
       # is made public (the date of its train). Once it is commercial, it has one embargoed/lts branch.
       - name: Check that the generation is still supported as OSS
         if: steps.plan.outputs.kind != 'lts' && steps.release.outputs.found == 'true' && steps.train-milestone.outputs.found != 'false'
-        uses: spring-io/spring-security-actions/check-oss-support@2c5d9e45421604e275308da1fb9d8a4db44080c6 # 0.0.12
+        uses: spring-io/spring-security-actions/check-oss-support@decb8bc594b8cf294bc78a4934a411147232fb31 # 0.0.12
         with:
           project: ${{ steps.repositories.outputs.project }}
           version: ${{ steps.release.outputs.release-version }}
@@ -324,7 +324,7 @@ jobs:
       # release, the one that was set above for a hotfix. A release that has joined is not joined
       # again, so a run by hand after the due date of a milestone was set joins what was missed.
       - name: Join the release train
-        uses: spring-io/spring-security-actions/join-train@2aaa8d52713a64f8a15c06b02dfd841d9c01341d # 0.0.12
+        uses: spring-io/spring-security-actions/join-train@f113915e4c575e5ec521e27bd705ef95a35f45be # 0.0.12
         with:
           release-train-repository: ${{ inputs.release-train-repository || 'spring-io/release-train' }}
           train-branch: ${{ steps.train.outputs.branch }}
