@@ -239,7 +239,7 @@ jobs:
           release: ${{ env.HOTFIX_OF }}
       - name: Apply the commercial license
         if: env.KIND == 'active'
-        uses: spring-io/spring-security-actions/apply-commercial-license@7e4ff06db82a0c52ec03458bbb800208f0ef0cf5 # 0.0.11
+        uses: spring-io/spring-security-actions/apply-commercial-license@e08ae06b299388c10cc61c43f7bcdc6c2c15678f # 0.0.12
         with:
           commit-message: Commercial changes for ${{ needs.plan.outputs.release-version }}
       - name: Set the version of the snapshot
