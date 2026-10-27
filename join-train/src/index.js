@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import * as core from "@actions/core";
 import { createOctokit, parseRepository } from "./octokit.js";
@@ -84,6 +85,27 @@ export function summaryLine({
 }
 
 /**
+ * The commit that a branch of the repository at a path is at, or "" if git does not know
+ * it. The release branch is built in the checkout of the job and pushed, so this is the
+ * commit that was pushed. The train is told which commit joined, so that a push of a newer
+ * one in between is not the one that joins.
+ */
+export function headOf(path, branch) {
+  try {
+    return execFileSync(
+      "git",
+      ["-C", path, "rev-parse", `refs/heads/${branch}`],
+      {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      },
+    ).trim();
+  } catch {
+    return "";
+  }
+}
+
+/**
  * The runs of the workflow Join on the branch of the train. Dispatching a workflow does
  * not say which run it made, so this is the list of them, the newest first.
  */
@@ -137,7 +159,9 @@ export async function main() {
       }),
       releaseBranch,
       deploymentDestination: destination,
-      commitHash: core.getInput("commit-hash"),
+      commitHash:
+        core.getInput("commit-hash") ||
+        headOf(core.getInput("path") || ".", releaseBranch),
     },
     { octokit },
   );

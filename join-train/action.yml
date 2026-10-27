@@ -31,11 +31,15 @@ inputs:
     description: "The release branch that joins, for example `release/7.0.1`. It must exist."
     required: true
   deployment-destination:
-    description: "Where the release is deployed to: `maven_central` or `spring_enterprise`."
+    description: "Where the release is deployed to: `maven-central` or `spring-enterprise`."
     required: true
   commit-hash:
-    description: "The hash of the last commit of the release branch. Optional: the train reads it from the branch if it is not given."
+    description: "The hash of the last commit of the release branch. Optional: the commit that the branch is at in the repository at `path` if it is not given, and the train reads it from the branch if there is none."
     required: false
+  path:
+    description: "The directory of the git repository that has the release branch, to find its commit."
+    required: false
+    default: "."
   token:
     description: "A token that may run workflows of the release train repository (Actions: write)."
     required: true

@@ -31648,7 +31648,7 @@ const HOTFIX = /^\d+\.\d+\.\d+\.\d+$/;
  *   hotfixOfVersion   the version of that release: 7.0.1. Empty for a frozen embargoed branch
  *   deploymentDestination
  *                     where the release is deployed to, as the release train names it:
- *                     maven_central for a frozen embargoed branch, spring_enterprise for an
+ *                     maven-central for a frozen embargoed branch, spring-enterprise for an
  *                     active one (a hotfix is commercial) or a long-term support one
  *   frozenBranch      for an active embargoed branch, the frozen embargoed branch of the same
  *                     generation, which a hotfix is only built for if the active one differs
@@ -31698,7 +31698,7 @@ function plan({ refName, version }) {
       hotfix: false,
       hotfixOf: "",
       hotfixOfVersion: "",
-      deploymentDestination: "spring_enterprise",
+      deploymentDestination: "spring-enterprise",
       frozenBranch: "",
       snapshotBranch: "",
       snapshotVersion: "",
@@ -31718,7 +31718,7 @@ function plan({ refName, version }) {
       hotfix: false,
       hotfixOf: "",
       hotfixOfVersion: "",
-      deploymentDestination: "maven_central",
+      deploymentDestination: "maven-central",
       frozenBranch: "",
       snapshotBranch: `embargoed/${plain}-INTERNAL-SNAPSHOT`,
       snapshotVersion: `${plain}-INTERNAL-SNAPSHOT`,
@@ -31741,7 +31741,7 @@ function plan({ refName, version }) {
     hotfix: true,
     hotfixOf: `release/${plain}`,
     hotfixOfVersion: plain,
-    deploymentDestination: "spring_enterprise",
+    deploymentDestination: "spring-enterprise",
     frozenBranch: refName.replace(/^embargoed\/active\//, "embargoed/frozen/"),
     snapshotBranch: `embargoed/${hotfix}-SNAPSHOT`,
     snapshotVersion: `${hotfix}-SNAPSHOT`,

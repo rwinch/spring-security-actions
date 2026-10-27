@@ -19,8 +19,9 @@ If the train has not been created (`train-found` is `false`), nothing is joined,
 | `train-url` | no | The URL of the branch, which the summary links to. |
 | `project`, `version` | yes | The project id in the train, and the version of the release. |
 | `release-repository`, `release-branch` | yes | The repository and the branch that joins (`release/7.0.1`). It must exist. |
-| `deployment-destination` | yes | `maven_central` or `spring_enterprise`. |
-| `commit-hash` | no | The last commit of the release branch. The train reads it if it is not given. |
+| `deployment-destination` | yes | `maven-central` or `spring-enterprise`. |
+| `commit-hash` | no | The last commit of the release branch. By default the commit that the branch is at in the repository at `path`, which is the one that was pushed, so that a newer push in between does not join. If there is none, the train reads it. |
+| `path` | no, `.` | The directory of the git repository that has the release branch. |
 | `token` | yes | A token that may run workflows of the release train repository (Actions: Read and write, or `repo`). |
 
 ## Outputs
