@@ -127,10 +127,17 @@ function byDueDateThenRelease(candidate) {
  * The due date is a date in UTC (a milestone is due at noon UTC, so it is the same
  * day in every time zone). It fails if the milestone has no due date, unless
  * requireDueDate is false. If the milestone does not exist, it does not fail: it
- * returns { found: false, message }, and the caller decides what to do.
+ * returns { found: false, message }, and the caller decides what to do. With releaseOnly,
+ * a .0 version whose next milestone is a milestone or a release candidate (7.2.0-RC1) is
+ * not found either: only the release itself (7.2.0) is, as a hotfix is only made of that.
  */
 export async function run(
-  { snapshotVersion, milestoneRepository, requireDueDate = true },
+  {
+    snapshotVersion,
+    milestoneRepository,
+    requireDueDate = true,
+    releaseOnly = false,
+  },
   { octokit },
 ) {
   const candidate = candidateOf(snapshotVersion);
@@ -146,6 +153,14 @@ export async function run(
         found: false,
         candidate,
         message: `${milestoneRepository} has no open milestone for ${candidate}: expected ${candidate}, ${candidate}-M<n> or ${candidate}-RC<n>, so nothing is built`,
+      };
+    }
+    if (releaseOnly && matching[0].title !== candidate) {
+      return {
+        found: false,
+        candidate,
+        notice: "No release",
+        message: `The next release of ${candidate} in ${milestoneRepository} is ${matching[0].title}, and not ${candidate}, which is the only one that has a hotfix, so nothing is built`,
       };
     }
     milestone = matching[0];
@@ -189,6 +204,11 @@ export async function main() {
       core.getInput("require-due-date"),
       true,
     ),
+    releaseOnly: parseBoolean(
+      "release-only",
+      core.getInput("release-only"),
+      false,
+    ),
     failIfMissing: parseBoolean(
       "fail-if-missing",
       core.getInput("fail-if-missing"),
@@ -212,16 +232,19 @@ export async function main() {
     throw error;
   }
   if (!result.found) {
-    addSummary(
-      noTrainSummary({
-        candidate: result.candidate,
-        repository: inputs.milestoneRepository,
-      }),
-    );
+    // a milestone that is there, but is not the release, is not one to add to a train
+    if (!result.notice) {
+      addSummary(
+        noTrainSummary({
+          candidate: result.candidate,
+          repository: inputs.milestoneRepository,
+        }),
+      );
+    }
     if (inputs.failIfMissing) {
       throw new Error(result.message);
     }
-    core.notice(result.message, { title: "No milestone" });
+    core.notice(result.message, { title: result.notice ?? "No milestone" });
     core.setOutput("found", "false");
     core.setOutput("release-version", "");
     core.setOutput("due-date", "");

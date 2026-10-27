@@ -28624,11 +28624,15 @@ var __webpack_exports__ = {};
 
 // EXPORTS
 __nccwpck_require__.d(__webpack_exports__, {
+  Uo: () => (/* binding */ headOf),
+  Iz: () => (/* binding */ joinRunsUrl),
   iW: () => (/* binding */ main),
   eF: () => (/* binding */ run),
   dC: () => (/* binding */ summaryLine)
 });
 
+;// CONCATENATED MODULE: external "node:child_process"
+const external_node_child_process_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:child_process");
 ;// CONCATENATED MODULE: external "node:fs"
 const external_node_fs_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:fs");
 ;// CONCATENATED MODULE: external "os"
@@ -36612,6 +36616,7 @@ function table(header, rows) {
 
 
 
+
 /**
  * Joins a release of the project to the release train, by running the workflow Join.yml
  * of the release train repository on the branch of the train. It does nothing if the
@@ -36677,17 +36682,47 @@ function summaryLine({
   trainUrl,
   releaseBranch,
   destination,
+  joinUrl,
 }) {
   const name = `release train ${trainBranch}`;
   const text = trainUrl ? `[${name}](${trainUrl})` : name;
   switch (outcome) {
     case "joined":
-      return `Joined the ${text}: dispatched Join of ${releaseBranch} (${destination})`;
+      return `Joined the ${text}: dispatched ${joinUrl ? `[Join](${joinUrl})` : "Join"} of ${releaseBranch} (${destination})`;
     case "already-joined":
       return `Already in the ${text}: not joined again`;
     default:
       return `Not joined: the ${name} has not been created`;
   }
+}
+
+/**
+ * The commit that a branch of the repository at a path is at, or "" if git does not know
+ * it. The release branch is built in the checkout of the job and pushed, so this is the
+ * commit that was pushed. The train is told which commit joined, so that a push of a newer
+ * one in between is not the one that joins.
+ */
+function headOf(path, branch) {
+  try {
+    return (0,external_node_child_process_namespaceObject.execFileSync)(
+      "git",
+      ["-C", path, "rev-parse", `refs/heads/${branch}`],
+      {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      },
+    ).trim();
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * The runs of the workflow Join on the branch of the train. Dispatching a workflow does
+ * not say which run it made, so this is the list of them, the newest first.
+ */
+function joinRunsUrl({ serverUrl, trainRepository, trainBranch }) {
+  return `${serverUrl.replace(/\/$/, "")}/${trainRepository}/actions/workflows/join.yml?query=branch%3A${encodeURIComponent(trainBranch)}`;
 }
 
 async function main() {
@@ -36736,7 +36771,9 @@ async function main() {
       }),
       releaseBranch,
       deploymentDestination: destination,
-      commitHash: getInput("commit-hash"),
+      commitHash:
+        getInput("commit-hash") ||
+        headOf(getInput("path") || ".", releaseBranch),
     },
     { octokit },
   );
@@ -36748,7 +36785,18 @@ async function main() {
       : `${project} ${version} is in the release train ${trainBranch} already`,
   );
   addSummary(
-    `${summaryLine({ outcome, trainBranch, trainUrl, releaseBranch, destination })}\n`,
+    `${summaryLine({
+      outcome,
+      trainBranch,
+      trainUrl,
+      releaseBranch,
+      destination,
+      joinUrl: joinRunsUrl({
+        serverUrl: process.env.GITHUB_SERVER_URL || "https://github.com",
+        trainRepository,
+        trainBranch,
+      }),
+    })}\n`,
   );
 }
 
@@ -36756,7 +36804,9 @@ if (isMain(import.meta.url)) {
   execute(main);
 }
 
+var __webpack_exports__headOf = __webpack_exports__.Uo;
+var __webpack_exports__joinRunsUrl = __webpack_exports__.Iz;
 var __webpack_exports__main = __webpack_exports__.iW;
 var __webpack_exports__run = __webpack_exports__.eF;
 var __webpack_exports__summaryLine = __webpack_exports__.dC;
-export { __webpack_exports__main as main, __webpack_exports__run as run, __webpack_exports__summaryLine as summaryLine };
+export { __webpack_exports__headOf as headOf, __webpack_exports__joinRunsUrl as joinRunsUrl, __webpack_exports__main as main, __webpack_exports__run as run, __webpack_exports__summaryLine as summaryLine };

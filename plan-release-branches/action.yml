@@ -11,7 +11,7 @@ inputs:
 
 outputs:
   release:
-    description: "false if there is nothing to build (an active embargoed branch whose version ends with .0 has no hotfix), else true. The other outputs are only there if it is true, and kind is always there"
+    description: "true. (The release workflow ends the run before it builds the hotfix of a .0 version whose next release is not the GA.) The other outputs are only there if it is true, and kind is always there"
   kind:
     description: "frozen, active or lts"
   base-version:
@@ -23,7 +23,7 @@ outputs:
   hotfix-of-version:
     description: "For a hotfix, the version of the release that it fixes (7.0.1), which is the milestone of the OSS repository that decides its release train. Empty for a frozen embargoed branch"
   deployment-destination:
-    description: "Where the release is deployed to, as the release train names it: maven_central for a frozen embargoed branch, spring_enterprise for an active one"
+    description: "Where the release is deployed to, as the release train names it: maven-central for a frozen embargoed branch, spring-enterprise for an active one"
   frozen-branch:
     description: "For an active embargoed branch, the frozen embargoed branch of the same generation (embargoed/frozen/7.0.x for embargoed/active/7.0.x): a hotfix is only built if the active one has changes that it lacks. Empty for a frozen embargoed branch"
   snapshot-branch:

@@ -117,6 +117,48 @@ describe("run", () => {
       }
     });
 
+    describe("release-only, for a hotfix", () => {
+      it("does not find a version whose next release is a release candidate", async () => {
+        expect(
+          await release("7.1.0-SNAPSHOT", { releaseOnly: true }),
+        ).toMatchObject({
+          found: false,
+          message: expect.stringContaining(
+            `The next release of 7.1.0 in ${REPO} is 7.1.0-RC1, and not 7.1.0`,
+          ),
+        });
+      });
+
+      it("finds the version whose next release is the version itself", async () => {
+        const milestones = fixture.map((m) =>
+          m.title === "7.1.0-RC1" ? { ...m, state: "closed" } : m,
+        );
+        const other = await startFakeGitHub({ milestones });
+        try {
+          const result = await run(
+            {
+              snapshotVersion: "7.1.0-SNAPSHOT",
+              milestoneRepository: REPO,
+              releaseOnly: true,
+            },
+            { octokit: createOctokit({ baseUrl: other.url }) },
+          );
+          expect(result).toMatchObject({
+            found: true,
+            releaseVersion: "7.1.0",
+          });
+        } finally {
+          await other.close();
+        }
+      });
+
+      it("changes nothing for a version that does not end with .0", async () => {
+        expect(
+          await release("7.0.1-SNAPSHOT", { releaseOnly: true }),
+        ).toMatchObject({ found: true, releaseVersion: "7.0.1" });
+      });
+    });
+
     it("goes by the due date and not by the name", async () => {
       // 7.3.0-RC1 is due before 7.3.0-M1
       expect(await release("7.3.0-SNAPSHOT")).toMatchObject({

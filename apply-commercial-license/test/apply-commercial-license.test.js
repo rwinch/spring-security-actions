@@ -4,9 +4,8 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   applyCommercialLicense,
-  BROADCOM_COPYRIGHT,
   BUNDLED_LICENSE,
-  replaceHeader,
+  BUNDLED_LICENSE_SCRIPT,
 } from "../src/index.js";
 import { createRepo, git } from "./support/git-repo.js";
 import { runAction } from "./support/run-action.js";
@@ -34,88 +33,41 @@ public class Greeter {
 }
 `;
 const BROADCOM = `/*
-${BROADCOM_COPYRIGHT}
+ * Copyright 2004 Broadcom Inc. and/or its subsidiaries. All Rights Reserved.
  * Copyright 2004-present the original author or authors.
  */`;
 const OSS_LICENSE = "Apache License\nVersion 2.0\n";
+const ROOT_BUILD = "plugins {\n\tid 'java'\n}\n";
 
-describe("replaceHeader", () => {
-  it("replaces the Apache header with the Broadcom copyright, and keeps the original ones", () => {
-    expect(replaceHeader(APACHE + BODY)).toBe(BROADCOM + BODY);
-  });
+/** A project: a git repository that has the root build file that the POM license needs. */
+const project = (files, options) =>
+  createRepo({ "build.gradle": ROOT_BUILD, ...files }, options);
+/** What was changed, but the POM license: the files of the license. */
+const licensesOf = (changed) =>
+  changed.filter(
+    (file) =>
+      !["build.gradle", "gradle/broadcom-license.gradle"].includes(file),
+  );
+const read = (directory, file) =>
+  fs.readFileSync(path.join(directory, file), "utf8");
 
-  it("keeps every copyright line, as it was", () => {
-    const text = `/*
- * Copyright 2002-2020 the original author or authors.
- * Copyright 2021-2026 Someone Else.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- */
-class A {}`;
-    expect(replaceHeader(text)).toBe(`/*
-${BROADCOM_COPYRIGHT}
- * Copyright 2002-2020 the original author or authors.
- * Copyright 2021-2026 Someone Else.
- */
-class A {}`);
-  });
-
-  it("has only the Broadcom line if the header had no copyright", () => {
-    const text = `/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- */
-class A {}`;
-    expect(replaceHeader(text)).toBe(`/*
-${BROADCOM_COPYRIGHT}
- */
-class A {}`);
-  });
-
-  it("can be done again, with the same result", () => {
-    const once = replaceHeader(APACHE + BODY);
-    expect(replaceHeader(once)).toBe(once);
-  });
-
-  it.each([
-    ["a file with no header", "package a;\nclass A {}\n"],
-    [
-      "another license",
-      "/*\n * Copyright 2020 X.\n * Licensed under the MIT License.\n */\nclass A {}\n",
-    ],
-    [
-      "an Apache header that is not the first comment",
-      `package a;\n${APACHE}\nclass A {}\n`,
-    ],
-    ["an empty file", ""],
-  ])("leaves %s", (_, text) => {
-    expect(replaceHeader(text)).toBe(text);
-  });
-
-  it("does not take a later comment for the end of the header", () => {
-    const text = `${APACHE}\n\n/* a comment */\nclass A {}\n`;
-    expect(replaceHeader(text)).toBe(
-      `${BROADCOM}\n\n/* a comment */\nclass A {}\n`,
-    );
-  });
-
-  it("keeps windows line endings", () => {
-    const windows = (APACHE + BODY).replaceAll("\n", "\r\n");
-    const replaced = replaceHeader(windows);
-    expect(replaced).toBe((BROADCOM + BODY).replaceAll("\n", "\r\n"));
-    expect(replaced.replaceAll("\r\n", "").includes("\n")).toBe(false);
-  });
-});
-
-describe("the bundled license", () => {
-  it("is the commercial license, and not the Apache one", () => {
+describe("the bundled files", () => {
+  it("the license is the commercial one, and not the Apache one", () => {
     const text = fs.readFileSync(BUNDLED_LICENSE, "utf8");
     expect(text).toContain("Foundation Agreement");
     expect(text).not.toContain("Apache License");
     expect(text.split("\n").length).toBeGreaterThan(1000);
   });
+
+  it("the script of the POM license sets the Broadcom Foundation License, without a URL", () => {
+    const text = fs.readFileSync(BUNDLED_LICENSE_SCRIPT, "utf8");
+    expect(text).toContain('plugins.withId("maven-publish")');
+    expect(text).toContain("'Broadcom Foundation License'");
+    expect(text).not.toContain("appendNode('url'");
+  });
 });
 
-describe("applyCommercialLicense", () => {
+describe("applyCommercialLicense, the headers", () => {
   const files = {
     "LICENSE.txt": OSS_LICENSE,
     "src/main/java/a/Greeter.java": APACHE + BODY,
@@ -123,19 +75,22 @@ describe("applyCommercialLicense", () => {
     "src/main/java/a/Done.java": BROADCOM + BODY,
     "docs/Example.java.txt": APACHE + BODY, // not a Java file
   };
-  const repo = (options) => createRepo(files, options);
-  const read = (directory, file) =>
-    fs.readFileSync(path.join(directory, file), "utf8");
+  const repo = (options) => project(files, options);
 
-  it("changes the headers of the Java files and the license, and nothing else", () => {
+  it("changes the headers of the Java files, the license and the POM license, and nothing else", () => {
     const directory = repo();
-    const { changed, java, license } = applyCommercialLicense({ directory });
+    const { changed, java, license, year } = applyCommercialLicense({
+      directory,
+    });
     expect(changed.sort()).toEqual([
       "LICENSE.txt",
+      "build.gradle",
+      "gradle/broadcom-license.gradle",
       "src/main/java/a/Greeter.java",
     ]);
     expect(java).toBe(1);
     expect(license).toBe(true);
+    expect(year).toBe("2004");
     expect(read(directory, "src/main/java/a/Greeter.java")).toBe(
       BROADCOM + BODY,
     );
@@ -146,11 +101,6 @@ describe("applyCommercialLicense", () => {
     expect(fs.readFileSync(path.join(directory, "LICENSE.txt"))).toEqual(
       fs.readFileSync(BUNDLED_LICENSE),
     );
-    // the changes are left in the working tree
-    expect(git(directory, "status", "--porcelain").split("\n").sort()).toEqual([
-      " M LICENSE.txt",
-      " M src/main/java/a/Greeter.java",
-    ]);
   });
 
   it("is done again with nothing to change", () => {
@@ -161,18 +111,236 @@ describe("applyCommercialLicense", () => {
     const again = applyCommercialLicense({ directory });
     expect(again.changed).toEqual([]);
     expect(again.license).toBe(false);
+    expect(again.pom).toBe(false);
     expect(git(directory, "status", "--porcelain")).toBe("");
   });
 
-  it("creates LICENSE.txt if the project has none", () => {
-    const directory = createRepo({ "a.txt": "a" });
+  it("takes the oldest year of the copyright of the project, and not that of another holder", () => {
+    const directory = project({
+      "A.java": APACHE.replace("2004-present", "2010-2020") + BODY,
+      "B.java":
+        APACHE.replace("2004-present", "2008-2019").replace(
+          " *\n * Licensed",
+          " * Copyright 1999 Square Inc.\n *\n * Licensed",
+        ) + BODY,
+      "C.java": APACHE.replace("2004-present", "2015") + BODY,
+    });
+    expect(applyCommercialLicense({ directory }).year).toBe("2008");
+    expect(read(directory, "C.java")).toContain(
+      " * Copyright 2008 Broadcom Inc. and/or its subsidiaries. All Rights Reserved.\n * Copyright 2008-present the original author or authors.\n */",
+    );
+  });
+
+  it("takes the year that it is given", () => {
+    const directory = project({ "A.java": APACHE + BODY });
+    expect(applyCommercialLicense({ directory, year: "2002" }).year).toBe(
+      "2002",
+    );
+    expect(read(directory, "A.java")).toContain("Copyright 2002 Broadcom");
+  });
+
+  it("keeps the other holders of a file, and the Acegi line", () => {
+    const directory = project({
+      "A.java": `/*
+ * Copyright 2002-2020 the original author or authors.
+ * Copyright 2012 Square Inc.
+ * Copyright 2004, 2005 Acegi Technology Pty Limited
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ */
+class A {}
+`,
+    });
+    applyCommercialLicense({ directory });
+    expect(read(directory, "A.java")).toBe(`/*
+ * Copyright 2002 Broadcom Inc. and/or its subsidiaries. All Rights Reserved.
+ * Copyright 2002-present the original author or authors.
+ * Copyright 2012 Square Inc.
+ * Copyright 2004, 2005 Acegi Technology Pty Limited
+ */
+class A {}
+`);
+  });
+
+  it("changes the XML, the properties and the gradle files, with the syntax of each", () => {
+    const directory = project({
+      "a/security.tld": `<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+  ~ Copyright 2004-present the original author or authors.
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  -->
+<taglib/>
+`,
+      "gradle.properties": `#
+# Copyright 2004-present the original author or authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+#
+version=7.0.1.1-SNAPSHOT
+`,
+      "x/build.gradle": APACHE + "\nplugins {}\n",
+    });
+    applyCommercialLicense({ directory });
+    expect(read(directory, "a/security.tld"))
+      .toBe(`<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+  ~ Copyright 2004 Broadcom Inc. and/or its subsidiaries. All Rights Reserved.
+  ~ Copyright 2004-present the original author or authors.
+  -->
+<taglib/>
+`);
+    expect(read(directory, "gradle.properties"))
+      .toBe(`# Copyright 2004 Broadcom Inc. and/or its subsidiaries. All Rights Reserved.
+# Copyright 2004-present the original author or authors.
+version=7.0.1.1-SNAPSHOT
+`);
+    expect(read(directory, "x/build.gradle")).toContain(
+      "Copyright 2004 Broadcom",
+    );
+  });
+
+  it("keeps windows line endings, and the file annotations of a Kotlin file", () => {
+    const directory = project({
+      "A.java": (APACHE + BODY).replaceAll("\n", "\r\n"),
+      "B.kt": `@file:Suppress("x")\n\n${APACHE}\n\npackage b\n`,
+    });
+    applyCommercialLicense({ directory });
+    expect(read(directory, "A.java")).toBe(
+      (BROADCOM + BODY).replaceAll("\n", "\r\n"),
+    );
+    expect(read(directory, "B.kt")).toBe(
+      `@file:Suppress("x")\n\n${BROADCOM}\n\npackage b\n`,
+    );
+  });
+
+  it("does not change a file that checkstyle is told to skip completely, nor a header that is not Apache", () => {
+    const directory = project({
+      "etc/checkstyle/checkstyle-suppressions.xml":
+        '<suppressions>\n<suppress files="BCrypt\\.java" checks=".*"/>\n<suppress files="Other" checks="Javadoc"/>\n</suppressions>\n',
+      "crypto/BCrypt.java": APACHE + BODY,
+      "crypto/Other.java": APACHE + BODY,
+      "crypto/Mit.java":
+        "/*\n * Copyright 2012 Someone\n * MIT license\n */\n" + BODY,
+    });
+    const { changed } = applyCommercialLicense({ directory });
+    expect(changed).toContain("crypto/Other.java");
+    expect(changed).not.toContain("crypto/BCrypt.java");
+    expect(changed).not.toContain("crypto/Mit.java");
+  });
+
+  it("changes the files that the input header-files names, and only those", () => {
+    const directory = project({
+      "a/A.java": APACHE + BODY,
+      "b/B.java": APACHE + BODY,
+    });
+    const { changed } = applyCommercialLicense({
+      directory,
+      headerFiles: ["a/**.java"],
+    });
+    expect(changed).toContain("a/A.java");
+    expect(changed).not.toContain("b/B.java");
+  });
+
+  it("fails if there is no header to take the year from, and the project has a checkstyle header", () => {
+    const directory = project({ "etc/checkstyle/header.txt": "^x$\n" });
+    expect(() => applyCommercialLicense({ directory })).toThrow(
+      "give the input year",
+    );
+    expect(
+      applyCommercialLicense({ directory, year: "2002" }).changed,
+    ).toContain("etc/checkstyle/header.txt");
+  });
+
+  it("fails for a year that is not one", () => {
+    expect(() =>
+      applyCommercialLicense({ directory: repo(), year: "soon" }),
+    ).toThrow("is not a year");
+  });
+});
+
+describe("applyCommercialLicense, etc/checkstyle/header.txt", () => {
+  it("is replaced with the header of the canonical year, if the project has one", () => {
+    const directory = project({
+      "etc/checkstyle/header.txt": "^\\Q/*\\E$\n^\\Q * Copyright \\E20\\d\\d\n",
+      "A.java": APACHE + BODY,
+    });
+    expect(applyCommercialLicense({ directory }).changed).toContain(
+      "etc/checkstyle/header.txt",
+    );
+    expect(read(directory, "etc/checkstyle/header.txt")).toBe(
+      [
+        "^\\Q/*\\E$",
+        "^\\Q * Copyright \\E2004\\Q Broadcom Inc. and/or its subsidiaries. All Rights Reserved.\\E$",
+        "^\\Q * Copyright \\E(2004-present the original author or authors.|\\d{4}(, \\d{4})* Acegi Technology Pty Limited)$",
+        "^\\Q */\\E$",
+        "^$",
+        "",
+      ].join("\n"),
+    );
+  });
+
+  it("is not made if the project has none", () => {
+    const directory = project({ "A.java": APACHE + BODY });
+    applyCommercialLicense({ directory });
+    expect(fs.existsSync(path.join(directory, "etc/checkstyle"))).toBe(false);
+  });
+});
+
+describe("applyCommercialLicense, the license of the POM", () => {
+  it("writes the script, and applies it from the root build file", () => {
+    const directory = project({ "A.java": APACHE + BODY });
     const result = applyCommercialLicense({ directory });
-    expect(result.license).toBe(true);
+    expect(result.pom).toBe(true);
+    expect(read(directory, "gradle/broadcom-license.gradle")).toBe(
+      fs.readFileSync(BUNDLED_LICENSE_SCRIPT, "utf8"),
+    );
+    expect(read(directory, "build.gradle")).toBe(
+      `${ROOT_BUILD}apply from: "$rootDir/gradle/broadcom-license.gradle"\n`,
+    );
+  });
+
+  it("applies it with the syntax of Kotlin to build.gradle.kts, and ends a file that has no last line ending", () => {
+    const directory = createRepo({ "build.gradle.kts": "plugins { java }" });
+    applyCommercialLicense({ directory });
+    expect(read(directory, "build.gradle.kts")).toBe(
+      'plugins { java }\napply(from = "$rootDir/gradle/broadcom-license.gradle")\n',
+    );
+  });
+
+  it("applies it once, whatever is there", () => {
+    const directory = project({
+      "gradle/broadcom-license.gradle": "// mine\n",
+    });
+    const first = applyCommercialLicense({ directory });
+    expect(first.changed).toContain("gradle/broadcom-license.gradle");
+    const second = applyCommercialLicense({ directory });
+    expect(second.pom).toBe(false);
+    expect(
+      read(directory, "build.gradle").match(/broadcom-license/g),
+    ).toHaveLength(1);
+  });
+
+  it("fails, and changes nothing, if the root has no build file", () => {
+    const directory = createRepo({ "A.java": APACHE + BODY });
+    expect(() => applyCommercialLicense({ directory })).toThrow(
+      "no build.gradle or build.gradle.kts",
+    );
+    expect(git(directory, "status", "--porcelain")).toBe("");
+  });
+});
+
+describe("applyCommercialLicense, the license and the commit", () => {
+  const files = { "LICENSE.txt": OSS_LICENSE, "A.java": APACHE + BODY };
+
+  it("creates LICENSE.txt if the project has none", () => {
+    const directory = project({ "a.txt": "a" });
+    expect(applyCommercialLicense({ directory }).license).toBe(true);
     expect(fs.existsSync(path.join(directory, "LICENSE.txt"))).toBe(true);
   });
 
   it("takes another license if it is given one", () => {
-    const directory = repo();
+    const directory = project(files);
     const other = path.join(
       fs.mkdtempSync(path.join(os.tmpdir(), "lic-")),
       "L.txt",
@@ -185,14 +353,14 @@ describe("applyCommercialLicense", () => {
   it("fails for a license that does not exist", () => {
     expect(() =>
       applyCommercialLicense({
-        directory: repo(),
+        directory: project(files),
         licenseFile: "/nonexistent/L.txt",
       }),
     ).toThrow("The license does not exist");
   });
 
   it("commits the changes if it is given a message, signed off, and only those files", () => {
-    const directory = repo();
+    const directory = project(files);
     fs.writeFileSync(path.join(directory, "unrelated.txt"), "x");
     git(directory, "add", "unrelated.txt");
     const result = applyCommercialLicense({
@@ -207,12 +375,17 @@ describe("applyCommercialLicense", () => {
       git(directory, "show", "--format=", "--name-only", "HEAD")
         .split("\n")
         .sort(),
-    ).toEqual(["LICENSE.txt", "src/main/java/a/Greeter.java"]);
+    ).toEqual([
+      "A.java",
+      "LICENSE.txt",
+      "build.gradle",
+      "gradle/broadcom-license.gradle",
+    ]);
     expect(git(directory, "status", "--porcelain")).toBe("A  unrelated.txt");
   });
 
   it("makes no commit if there is nothing to change", () => {
-    const directory = repo();
+    const directory = project(files);
     applyCommercialLicense({ directory, commitMessage: "first" });
     const before = git(directory, "rev-parse", "HEAD");
     const result = applyCommercialLicense({
@@ -224,7 +397,7 @@ describe("applyCommercialLicense", () => {
   });
 
   it("refuses to commit if git does not know who commits, and changes nothing committed", () => {
-    const directory = repo({ identity: false });
+    const directory = project(files, { identity: false });
     const keep = { ...process.env };
     process.env.GIT_CONFIG_GLOBAL = "/dev/null";
     process.env.GIT_CONFIG_SYSTEM = "/dev/null";
@@ -248,229 +421,6 @@ describe("applyCommercialLicense", () => {
   });
 });
 
-const HASH_APACHE = `#
-# Copyright 2004-present the original author or authors.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#      https://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-`;
-const HASH_BROADCOM = `#
-# Copyright 2004 Broadcom Inc. and/or its subsidiaries. All Rights Reserved.
-# Copyright 2004-present the original author or authors.
-#
-`;
-const PROPERTIES = "springBootVersion=4.2.0-SNAPSHOT\nversion=7.2.0-SNAPSHOT\n";
-
-describe("replaceHeader of the other files", () => {
-  it("changes the block of # lines of gradle.properties, and keeps the properties", () => {
-    expect(replaceHeader(HASH_APACHE + PROPERTIES)).toBe(
-      HASH_BROADCOM + PROPERTIES,
-    );
-  });
-
-  it("keeps every copyright line of a # block, as it was", () => {
-    const text = `# Copyright 2002-2020 A.
-# Copyright 2021 B.
-# Licensed under the Apache License, Version 2.0 (the "License");
-a=b
-`;
-    expect(replaceHeader(text))
-      .toBe(`# Copyright 2004 Broadcom Inc. and/or its subsidiaries. All Rights Reserved.
-# Copyright 2002-2020 A.
-# Copyright 2021 B.
-a=b
-`);
-  });
-
-  it("can be done again on a # block, and keeps windows line endings", () => {
-    const once = replaceHeader(HASH_APACHE + PROPERTIES);
-    expect(replaceHeader(once)).toBe(once);
-    const windows = replaceHeader(
-      (HASH_APACHE + PROPERTIES).replaceAll("\n", "\r\n"),
-    );
-    expect(windows).toBe((HASH_BROADCOM + PROPERTIES).replaceAll("\n", "\r\n"));
-  });
-
-  it.each([
-    ["properties with no header", PROPERTIES],
-    [
-      "a # block of another license",
-      "# Copyright 2020 X\n# Licensed under the MIT License\na=b\n",
-    ],
-    [
-      "a script, which has its header after the shebang",
-      `#!/bin/sh\n${HASH_APACHE}echo hi\n`,
-    ],
-  ])("leaves %s", (_, text) => {
-    expect(replaceHeader(text)).toBe(text);
-  });
-
-  it("changes the header of a Kotlin, a Groovy and a JavaScript file as it does a Java one", () => {
-    for (const body of [
-      "\n\npackage a\n\nclass A\n",
-      "\n\npackage a\n\nclass A {}\n",
-      "\n\nexport function a() {}\n",
-    ]) {
-      expect(replaceHeader(APACHE + body)).toBe(BROADCOM + body);
-    }
-  });
-
-  it("keeps the file annotations and the blank lines that a Kotlin file has before the header", () => {
-    const annotation = '@file:Suppress("DEPRECATION", "UNCHECKED_CAST")\n\n';
-    expect(replaceHeader(annotation + APACHE + "\n\npackage a\n")).toBe(
-      annotation + BROADCOM + "\n\npackage a\n",
-    );
-    expect(replaceHeader("\n" + APACHE + "\n\npackage a\n")).toBe(
-      "\n" + BROADCOM + "\n\npackage a\n",
-    );
-    const once = replaceHeader(annotation + APACHE + "\n");
-    expect(replaceHeader(once)).toBe(once);
-  });
-
-  it("does not look past the code for a header", () => {
-    const text = `package a\n\n${APACHE}\n`;
-    expect(replaceHeader(text)).toBe(text);
-    const annotated = `@file:JvmName("A")\nimport a.B\n${APACHE}\n`;
-    expect(replaceHeader(annotated)).toBe(annotated);
-  });
-
-  it("keeps a list of copyrights of one line, as in Spring Security", () => {
-    const text = `/*
- * Copyright 2004, 2005, 2006 Acegi Technology Pty Limited
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- */
-package a;
-`;
-    expect(replaceHeader(text)).toBe(`/*
-${BROADCOM_COPYRIGHT}
- * Copyright 2004, 2005, 2006 Acegi Technology Pty Limited
- */
-package a;
-`);
-  });
-
-  it("leaves a file that has only a copyright line", () => {
-    const text =
-      "/*\n * Copyright 2012-present the original author or authors.\n */\n\npackage a;\n";
-    expect(replaceHeader(text)).toBe(text);
-  });
-});
-
-describe("applyCommercialLicense, the files that it changes", () => {
-  const files = {
-    "LICENSE.txt": OSS_LICENSE,
-    "notice.txt": `   == NOTICE file corresponding to section 4(d) of the Apache License ==\n`,
-    "gradle.properties": HASH_APACHE + PROPERTIES,
-    gradlew: "#!/bin/sh\n# Licensed under the Apache License, Version 2.0\n",
-    "gradlew.bat": "@rem Licensed under the Apache License, Version 2.0\r\n",
-    "a/A.java": APACHE + BODY,
-    "a/B.kt": APACHE + "\n\npackage a\n",
-    "a/C.groovy": APACHE + "\n\nclass C {}\n",
-    "aspects/D.aj": APACHE + "\npackage a;\n",
-    "web/default-ui.css": APACHE + "\nbody {}\n",
-    "config/Dsl.xml":
-      '<?xml version="1.0"?>\n<!--\n  ~ Licensed under the Apache License, Version 2.0\n-->\n<a/>\n',
-    "javascript/lib/http.js": APACHE + "\n\nexport const a = 1;\n",
-    "docs/vendor.css": APACHE + "\nbody {}\n",
-  };
-  const read = (directory, file) =>
-    fs.readFileSync(path.join(directory, file), "utf8");
-
-  it("changes Java, AspectJ, Groovy, Kotlin, JavaScript and gradle.properties, and not gradlew, notice.txt, XML, CSS or other files", () => {
-    const directory = createRepo(files);
-    const result = applyCommercialLicense({ directory });
-    expect(result.changed.sort()).toEqual([
-      "LICENSE.txt",
-      "a/A.java",
-      "a/B.kt",
-      "a/C.groovy",
-      "aspects/D.aj",
-      "gradle.properties",
-      "javascript/lib/http.js",
-    ]);
-    expect(result.headers).toBe(6);
-    expect(result.java).toBe(1);
-    expect(read(directory, "gradle.properties")).toBe(
-      HASH_BROADCOM + PROPERTIES,
-    );
-    for (const file of [
-      "a/B.kt",
-      "a/C.groovy",
-      "aspects/D.aj",
-      "javascript/lib/http.js",
-    ]) {
-      expect(read(directory, file)).toContain(BROADCOM_COPYRIGHT);
-      expect(read(directory, file)).not.toContain("Licensed under");
-    }
-    for (const file of [
-      "notice.txt",
-      "gradlew",
-      "gradlew.bat",
-      "docs/vendor.css",
-      "web/default-ui.css",
-      "config/Dsl.xml",
-    ]) {
-      expect(read(directory, file)).toBe(files[file]);
-    }
-  });
-
-  it("is done again with nothing to change", () => {
-    const directory = createRepo(files);
-    applyCommercialLicense({ directory });
-    git(directory, "add", "-A");
-    git(directory, "commit", "-q", "-m", "done");
-    expect(applyCommercialLicense({ directory }).changed).toEqual([]);
-    expect(git(directory, "status", "--porcelain")).toBe("");
-  });
-
-  it("changes the files that the input header-files names, and only those", () => {
-    const directory = createRepo(files);
-    const result = applyCommercialLicense({
-      directory,
-      headerFiles: ["javascript/lib/*.js", "*.css"],
-    });
-    expect(result.changed.sort()).toEqual([
-      "LICENSE.txt",
-      "docs/vendor.css",
-      "javascript/lib/http.js",
-      "web/default-ui.css",
-    ]);
-    expect(read(directory, "a/A.java")).toBe(APACHE + BODY);
-  });
-
-  it("changes no header if header-files is empty", () => {
-    const directory = createRepo(files);
-    expect(
-      applyCommercialLicense({ directory, headerFiles: [] }).changed,
-    ).toEqual(["LICENSE.txt"]);
-  });
-
-  it("leaves a version that set-version changed before it, and after it", () => {
-    const directory = createRepo(files);
-    fs.writeFileSync(
-      path.join(directory, "gradle.properties"),
-      HASH_APACHE +
-        "springBootVersion=4.2.0-SNAPSHOT\nversion=7.0.1.1-SNAPSHOT\n",
-    );
-    applyCommercialLicense({ directory });
-    expect(read(directory, "gradle.properties")).toBe(
-      HASH_BROADCOM +
-        "springBootVersion=4.2.0-SNAPSHOT\nversion=7.0.1.1-SNAPSHOT\n",
-    );
-  });
-});
-
 describe("applyCommercialLicense, where the license is", () => {
   const read = (directory, file) =>
     fs.readFileSync(path.join(directory, file), "utf8");
@@ -479,9 +429,9 @@ describe("applyCommercialLicense, where the license is", () => {
   it.each(["LICENSE", "LICENSE.md", "LICENSE.txt"])(
     "replaces the file %s of the root in place, and makes no other",
     (name) => {
-      const directory = createRepo({ [name]: OSS_LICENSE, "a.txt": "a" });
+      const directory = project({ [name]: OSS_LICENSE, "a.txt": "a" });
       const result = applyCommercialLicense({ directory });
-      expect(result.changed).toEqual([name]);
+      expect(result.changed).toContain(name);
       expect(read(directory, name)).toBe(bundled);
       expect(
         fs.readdirSync(directory).filter((f) => f.startsWith("LICENSE")),
@@ -490,23 +440,25 @@ describe("applyCommercialLicense, where the license is", () => {
   );
 
   it("prefers LICENSE, then LICENSE.txt, of several", () => {
-    const directory = createRepo({
+    const directory = project({
       LICENSE: OSS_LICENSE,
       "LICENSE.txt": OSS_LICENSE,
       "LICENSE.md": OSS_LICENSE,
     });
-    expect(applyCommercialLicense({ directory }).changed).toEqual(["LICENSE"]);
-    const other = createRepo({
+    expect(licensesOf(applyCommercialLicense({ directory }).changed)).toEqual([
+      "LICENSE",
+    ]);
+    const other = project({
       "LICENSE.txt": OSS_LICENSE,
       "LICENSE.md": OSS_LICENSE,
     });
-    expect(applyCommercialLicense({ directory: other }).changed).toEqual([
-      "LICENSE.txt",
-    ]);
+    expect(
+      licensesOf(applyCommercialLicense({ directory: other }).changed),
+    ).toEqual(["LICENSE.txt"]);
   });
 
   it("fails, and changes nothing, if there are several and none is the usual one", () => {
-    const directory = createRepo({
+    const directory = project({
       "LICENSE.md": OSS_LICENSE,
       "LICENSE-APACHE": OSS_LICENSE,
       "A.java": APACHE + BODY,
@@ -518,36 +470,36 @@ describe("applyCommercialLicense, where the license is", () => {
   });
 
   it("does not take the license of a module for the license of the project", () => {
-    const directory = createRepo({
+    const directory = project({
       "cli/content/LICENSE.txt": "Copyright 2012-2013\nApache\n",
     });
     const result = applyCommercialLicense({ directory });
-    expect(result.changed).toEqual(["LICENSE.txt"]);
+    expect(licensesOf(result.changed)).toEqual(["LICENSE.txt"]);
     expect(read(directory, "cli/content/LICENSE.txt")).toBe(
       "Copyright 2012-2013\nApache\n",
     );
   });
 
   it("writes the license where license-target says, and makes the directories", () => {
-    const directory = createRepo({ "LICENSE.txt": OSS_LICENSE });
+    const directory = project({ "LICENSE.txt": OSS_LICENSE });
     const result = applyCommercialLicense({
       directory,
       licenseTarget: "legal/COMMERCIAL.txt",
     });
-    expect(result.changed).toEqual(["legal/COMMERCIAL.txt"]);
+    expect(licensesOf(result.changed)).toEqual(["legal/COMMERCIAL.txt"]);
     expect(read(directory, "legal/COMMERCIAL.txt")).toBe(bundled);
     expect(read(directory, "LICENSE.txt")).toBe(OSS_LICENSE);
   });
 
   it("fails for a license-target that is not in the repository", () => {
-    const directory = createRepo({ "a.txt": "a" });
+    const directory = project({ "a.txt": "a" });
     expect(() =>
       applyCommercialLicense({ directory, licenseTarget: "../LICENSE.txt" }),
     ).toThrow("is not in the repository");
   });
 
   it("writes through a link to the one file, once, so that a license that is repeated in modules is changed in one place", () => {
-    const directory = createRepo({
+    const directory = project({
       "LICENSE.txt": OSS_LICENSE,
       "module/README.md": "m",
     });
@@ -561,7 +513,7 @@ describe("applyCommercialLicense, where the license is", () => {
       directory,
       licenseTarget: "module/LICENSE.txt",
     });
-    expect(result.changed).toEqual(["LICENSE.txt"]);
+    expect(licensesOf(result.changed)).toEqual(["LICENSE.txt"]);
     expect(
       fs.lstatSync(path.join(directory, "module/LICENSE.txt")).isSymbolicLink(),
     ).toBe(true);
@@ -570,7 +522,7 @@ describe("applyCommercialLicense, where the license is", () => {
   });
 
   it("fails for a link that points outside the repository, or nowhere", () => {
-    const directory = createRepo({ "a.txt": "a" });
+    const directory = project({ "a.txt": "a" });
     fs.symlinkSync("/etc/hosts", path.join(directory, "LICENSE.txt"));
     expect(() =>
       applyCommercialLicense({ directory, licenseTarget: "LICENSE.txt" }),
@@ -588,7 +540,7 @@ describe.each([["src/index.js"], ["dist/index.js"]])(
   "the program %s",
   (entry) => {
     const repo = () =>
-      createRepo({
+      project({
         "LICENSE.txt": OSS_LICENSE,
         "A.java": APACHE + BODY,
         "B.java": APACHE + BODY,
@@ -600,10 +552,14 @@ describe.each([["src/index.js"], ["dist/index.js"]])(
       expect(result.code).toBe(0);
       expect(result.outputs["java-files"]).toBe("2");
       expect(result.outputs.license).toBe("true");
+      expect(result.outputs.year).toBe("2004");
+      expect(result.outputs["pom-license"]).toBe("true");
       expect(JSON.parse(result.outputs.changed).sort()).toEqual([
         "A.java",
         "B.java",
         "LICENSE.txt",
+        "build.gradle",
+        "gradle/broadcom-license.gradle",
       ]);
       expect(result.outputs.commit).toBe("");
       expect(

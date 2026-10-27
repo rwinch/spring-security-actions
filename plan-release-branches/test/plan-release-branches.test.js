@@ -13,7 +13,7 @@ describe("plan", () => {
       hotfix: false,
       hotfixOf: "",
       hotfixOfVersion: "",
-      deploymentDestination: "maven_central",
+      deploymentDestination: "maven-central",
       frozenBranch: "",
       snapshotBranch: "embargoed/7.0.1-INTERNAL-SNAPSHOT",
       snapshotVersion: "7.0.1-INTERNAL-SNAPSHOT",
@@ -40,7 +40,7 @@ describe("plan", () => {
       hotfix: true,
       hotfixOf: "release/7.0.1",
       hotfixOfVersion: "7.0.1",
-      deploymentDestination: "spring_enterprise",
+      deploymentDestination: "spring-enterprise",
       frozenBranch: "embargoed/frozen/7.0.x",
       snapshotBranch: "embargoed/7.0.1.1-SNAPSHOT",
       snapshotVersion: "7.0.1.1-SNAPSHOT",
@@ -57,19 +57,24 @@ describe("plan", () => {
       hotfix: false,
       hotfixOf: "",
       hotfixOfVersion: "",
-      deploymentDestination: "spring_enterprise",
+      deploymentDestination: "spring-enterprise",
       frozenBranch: "",
       snapshotBranch: "",
       snapshotVersion: "",
     });
   });
 
-  it("builds nothing for an active embargoed branch whose version is not a patch release", () => {
+  it("plans the hotfix of a .0 version for an active embargoed branch: the workflow decides if its next release is the GA", () => {
     expect(
       plan({ refName: "embargoed/active/main", version: "7.1.0-SNAPSHOT" }),
-    ).toEqual({
-      release: false,
+    ).toMatchObject({
+      release: true,
       kind: "active",
+      baseVersion: "7.1.0.1-SNAPSHOT",
+      hotfix: true,
+      hotfixOf: "release/7.1.0",
+      hotfixOfVersion: "7.1.0",
+      snapshotBranch: "embargoed/7.1.0.1-SNAPSHOT",
     });
   });
 
@@ -166,7 +171,7 @@ describe.each([["src/index.js"], ["dist/index.js"]])(
         hotfix: "true",
         "hotfix-of": "release/7.0.1",
         "hotfix-of-version": "7.0.1",
-        "deployment-destination": "spring_enterprise",
+        "deployment-destination": "spring-enterprise",
         "frozen-branch": "embargoed/frozen/7.0.x",
         "snapshot-branch": "embargoed/7.0.1.1-SNAPSHOT",
         "snapshot-version": "7.0.1.1-SNAPSHOT",
@@ -186,22 +191,23 @@ describe.each([["src/index.js"], ["dist/index.js"]])(
         kind: "frozen",
         hotfix: "false",
         "hotfix-of": "",
-        "deployment-destination": "maven_central",
+        "deployment-destination": "maven-central",
         "frozen-branch": "",
         "snapshot-branch": "embargoed/7.1.0-INTERNAL-SNAPSHOT",
       });
     });
 
-    it("writes only release and kind when there is nothing to build", async () => {
+    it("writes the outputs of the hotfix of a .0 version", async () => {
       const result = await runAction(entry, {
         "ref-name": "embargoed/active/main",
         version: "7.1.0-SNAPSHOT",
       });
       expect(result.code).toBe(0);
-      expect(result.outputs).toEqual({ release: "false", kind: "active" });
-      expect(result.stdout).toContain(
-        "it has no hotfix, so there is nothing to build",
-      );
+      expect(result.outputs).toMatchObject({
+        release: "true",
+        "base-version": "7.1.0.1-SNAPSHOT",
+        "hotfix-of-version": "7.1.0",
+      });
     });
 
     it("fails with an error that GitHub shows", async () => {

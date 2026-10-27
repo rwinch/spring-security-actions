@@ -1,0 +1,30 @@
+name: "check-oss-support"
+description: "Fails if the OSS support of the generation of a version ends before a date, from the Spring projects API"
+
+inputs:
+  project:
+    description: "The slug of the project in the Spring projects API, for example `spring-security`."
+    required: true
+  version:
+    description: "The version, for example `7.0.9` or `7.0.9.1`: its generation is `7.0.x`."
+    required: true
+  date:
+    description: "The disclosure date, YYYY-MM-DD: the date that the release is made public. OSS support must not end before it."
+    required: true
+  branch:
+    description: "The embargoed branch, for the message."
+    required: false
+  api-url:
+    description: "The Spring projects API."
+    required: false
+    default: "https://api.spring.io"
+
+outputs:
+  generation:
+    description: "The generation of the version, for example 7.0.x."
+  oss-support-end:
+    description: "The last day of OSS support of the generation, YYYY-MM-DD. Empty if it has no end."
+
+runs:
+  using: "node24"
+  main: "dist/index.js"

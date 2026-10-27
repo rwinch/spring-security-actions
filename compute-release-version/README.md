@@ -19,6 +19,7 @@ The due date is the date of the due date of the milestone in UTC. GitHub keeps o
 | `milestone-repository` | yes | The repository (`owner/repo`) whose milestones decide. |
 | `milestone-token` | no | A token that can read its milestones. Without one, the request is unauthenticated, which only works for a public repository, and is rate limited. |
 | `require-due-date` | no, `true` | Whether the milestone must have a due date. |
+| `release-only` | no, `false` | Whether a `.0` version is only found if its next release is the version itself (`7.2.0`), and not a milestone or a release candidate (`7.2.0-RC1`): the release workflow gives it for a hotfix, which is only made of the release itself. Otherwise it ends as if there were no milestone, with the notice **No release**, and `found` is `false`. |
 | `fail-if-missing` | no, `true` | Whether the action fails if the milestone does not exist. If `false`, it ends successfully with the notice **No milestone**, which says which milestone is missing and in which repository, and the output `found` is `false`. A milestone that exists without a due date is still an error. |
 
 ## Outputs

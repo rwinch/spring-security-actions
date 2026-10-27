@@ -1,5 +1,5 @@
 name: "apply-commercial-license"
-description: "Changes a git repository to the commercial license: the Broadcom license header in place of the Apache one in the source files (Java, AspectJ, Groovy, Kotlin, JavaScript and gradle.properties by default), and the commercial license in place of the LICENSE* file. For a hotfix, which is the only release that is commercial"
+description: "Changes a git repository to the commercial license: the Broadcom license header in place of the Apache one in the source files, one year for the project, etc/checkstyle/header.txt if it has one, the commercial license in place of the LICENSE* file, and the Broadcom license in the POM. For a hotfix, which is the only release that is commercial"
 
 inputs:
   path:
@@ -16,7 +16,10 @@ inputs:
     description: "The path in the repository where the license is written. By default the LICENSE* file of the root that git tracks (LICENSE, LICENSE.txt, LICENSE.md), or LICENSE.txt if there is none. A link is written through to the file that it points to"
     required: false
   header-files:
-    description: "The files whose Apache header is changed, as git pathspecs separated by spaces or lines. By default *.java *.aj *.groovy *.kt *.js gradle.properties"
+    description: "The files whose Apache header is changed, as git pathspecs separated by spaces or lines. By default *.java *.aj *.groovy *.kt *.js *.gradle *.gradle.kts *.properties *.xml *.tld"
+    required: false
+  year:
+    description: "The year of the Broadcom copyright of every header, and of etc/checkstyle/header.txt. By default the oldest year of the copyright of the project in the headers (other holders do not count)"
     required: false
 
 outputs:
@@ -26,6 +29,10 @@ outputs:
     description: "How many of them are Java files"
   license:
     description: "true if the license was changed"
+  pom-license:
+    description: "true if the script that sets the license of the POM, or the line of the root build file that applies it, was written"
+  year:
+    description: "The year of the Broadcom copyright of the headers"
   changed:
     description: "The files that were changed, as a JSON array of paths"
   commit:

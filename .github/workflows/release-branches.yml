@@ -21,7 +21,7 @@ name: release-branches
 #                                             branch. The branch is commercial, so its milestone
 #                                             and the issues of its dependency updates are in the
 #                                             commercial repository, and it is deployed to
-#                                             spring_enterprise
+#                                             spring-enterprise
 #   A hotfix is only built if the active embargoed branch has changes that the frozen one of
 #   its generation lacks. If it has none (right after the frozen one was merged into it),
 #   nothing is built, and the milestone of the hotfix is not looked for.
@@ -76,7 +76,7 @@ jobs:
     name: Plan
     runs-on: ${{ inputs.runs-on || 'ubuntu-latest' }}
     outputs:
-      release: ${{ steps.plan.outputs.release == 'true' && (steps.plan.outputs.kind != 'active' || steps.compare.outputs.different == 'true') && steps.release.outputs.found != 'false' }}
+      release: ${{ steps.plan.outputs.release == 'true' && (steps.plan.outputs.kind != 'active' || steps.compare.outputs.different == 'true') && steps.release.outputs.found != 'false' && steps.train-milestone.outputs.found != 'false' }}
       kind: ${{ steps.plan.outputs.kind }}
       base-version: ${{ steps.plan.outputs.base-version }}
       hotfix: ${{ steps.plan.outputs.hotfix }}
@@ -101,7 +101,7 @@ jobs:
         uses: spring-io/spring-release-actions/compute-version@3f7412aeec60ad13127b2a536a1b19a2803a5b81 # 0.0.8
       - name: Decide what to build
         id: plan
-        uses: spring-io/spring-security-actions/plan-release-branches@7e4ff06db82a0c52ec03458bbb800208f0ef0cf5 # 0.0.11
+        uses: spring-io/spring-security-actions/plan-release-branches@4311bdcca2fe22330a1caadd14539c062a08ed22 # 0.0.12
         with:
           ref-name: ${{ github.ref_name }}
           version: ${{ steps.version.outputs.version }}
@@ -125,11 +125,27 @@ jobs:
         id: repositories
         if: steps.plan.outputs.release == 'true' && (steps.plan.outputs.kind != 'active' || steps.compare.outputs.different == 'true')
         uses: spring-io/spring-security-actions/name-repositories@7e4ff06db82a0c52ec03458bbb800208f0ef0cf5 # 0.0.11
+      # A hotfix is in the release train of its OSS equivalent: the train that the milestone of the
+      # release it fixes (7.0.1 for 7.0.1.1) is due. The due date of the milestone of the hotfix is
+      # when it is commercially available, and that is after the train that builds it. Like the
+      # milestone of a release, if it does not exist, nothing is built, and the run ends with a notice.
+      # The hotfix of a .0 version is only built for the GA (7.2.0), and not for 7.2.0-RC1, so this is
+      # looked at before the milestone of the hotfix, which is not asked for if there is none.
+      - name: Work out the date of the release train of the hotfix
+        id: train-milestone
+        if: steps.plan.outputs.kind == 'active' && steps.plan.outputs.release == 'true' && steps.compare.outputs.different == 'true'
+        uses: spring-io/spring-security-actions/compute-release-version@4311bdcca2fe22330a1caadd14539c062a08ed22 # 0.0.12
+        with:
+          snapshot-version: ${{ format('{0}-SNAPSHOT', steps.plan.outputs.hotfix-of-version) }}
+          milestone-repository: ${{ steps.repositories.outputs.oss-repository }}
+          milestone-token: ${{ secrets.GITHUB_TOKEN }}
+          release-only: "true"
+          fail-if-missing: "false"
       # If the milestone does not exist (a version that is not planned, or a hotfix whose milestone
       # is not created yet), nothing is built: the run ends with a notice, and the build job is skipped.
       - name: Work out the release version
         id: release
-        if: steps.plan.outputs.release == 'true' && (steps.plan.outputs.kind != 'active' || steps.compare.outputs.different == 'true')
+        if: steps.plan.outputs.release == 'true' && (steps.plan.outputs.kind != 'active' || steps.compare.outputs.different == 'true') && steps.train-milestone.outputs.found != 'false'
         uses: spring-io/spring-security-actions/compute-release-version@7e4ff06db82a0c52ec03458bbb800208f0ef0cf5 # 0.0.11
         with:
           snapshot-version: ${{ steps.plan.outputs.base-version }}
@@ -138,17 +154,16 @@ jobs:
           fail-if-missing: "false"
           # The due date of a hotfix is corrected to the commercial availability of its train
           require-due-date: ${{ steps.plan.outputs.kind != 'active' }}
-      # A hotfix is in the release train of its OSS equivalent: the train that the milestone of the
-      # release it fixes (7.0.1 for 7.0.1.1) is due. The due date of the milestone of the hotfix is
-      # when it is commercially available, and that is after the train that builds it.
-      - name: Work out the date of the release train of the hotfix
-        id: train-milestone
-        if: steps.plan.outputs.kind == 'active' && steps.release.outputs.found == 'true'
-        uses: spring-io/spring-security-actions/compute-release-version@7e4ff06db82a0c52ec03458bbb800208f0ef0cf5 # 0.0.11
+      # A frozen or active embargoed branch is for a generation that is still OSS when the release
+      # is made public (the date of its train). Once it is commercial, it has one embargoed/lts branch.
+      - name: Check that the generation is still supported as OSS
+        if: steps.plan.outputs.kind != 'lts' && steps.release.outputs.found == 'true' && steps.train-milestone.outputs.found != 'false'
+        uses: spring-io/spring-security-actions/check-oss-support@decb8bc594b8cf294bc78a4934a411147232fb31 # 0.0.12
         with:
-          snapshot-version: ${{ format('{0}-SNAPSHOT', steps.plan.outputs.hotfix-of-version) }}
-          milestone-repository: ${{ steps.repositories.outputs.oss-repository }}
-          milestone-token: ${{ secrets.GITHUB_TOKEN }}
+          project: ${{ steps.repositories.outputs.project }}
+          version: ${{ steps.release.outputs.release-version }}
+          date: ${{ steps.train-milestone.outputs.due-date || steps.release.outputs.due-date }}
+          branch: ${{ github.ref_name }}
 
   build:
     name: Build the branches
@@ -227,7 +242,7 @@ jobs:
           release: ${{ env.HOTFIX_OF }}
       - name: Apply the commercial license
         if: env.KIND == 'active'
-        uses: spring-io/spring-security-actions/apply-commercial-license@7e4ff06db82a0c52ec03458bbb800208f0ef0cf5 # 0.0.11
+        uses: spring-io/spring-security-actions/apply-commercial-license@e08ae06b299388c10cc61c43f7bcdc6c2c15678f # 0.0.12
         with:
           commit-message: Commercial changes for ${{ needs.plan.outputs.release-version }}
       - name: Set the version of the snapshot
@@ -312,7 +327,7 @@ jobs:
       # release, the one that was set above for a hotfix. A release that has joined is not joined
       # again, so a run by hand after the due date of a milestone was set joins what was missed.
       - name: Join the release train
-        uses: spring-io/spring-security-actions/join-train@7e4ff06db82a0c52ec03458bbb800208f0ef0cf5 # 0.0.11
+        uses: spring-io/spring-security-actions/join-train@f113915e4c575e5ec521e27bd705ef95a35f45be # 0.0.12
         with:
           release-train-repository: ${{ inputs.release-train-repository || 'spring-io/release-train' }}
           train-branch: ${{ steps.train.outputs.branch }}

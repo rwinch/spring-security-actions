@@ -31634,8 +31634,9 @@ const HOTFIX = /^\d+\.\d+\.\d+\.\d+$/;
  * (embargoed/frozen/<generation>, embargoed/active/<generation> or embargoed/lts/<generation>) and the version of
  * gradle.properties on it (<version>-SNAPSHOT). It returns:
  *
- *   release           false if there is nothing to build: a version that ends with .0 on an
- *                     active embargoed branch is not a patch release, so it has no hotfix.
+ *   release           true: there is something to build. (The workflow ends the run before it
+ *                     builds a hotfix of a .0 version whose next release is a milestone or a
+ *                     release candidate, which have no hotfix.)
  *                     Everything else below is only there if it is true
  *   kind              frozen, active or lts
  *   baseVersion       the snapshot version that the release version is worked out from: the
@@ -31648,7 +31649,7 @@ const HOTFIX = /^\d+\.\d+\.\d+\.\d+$/;
  *   hotfixOfVersion   the version of that release: 7.0.1. Empty for a frozen embargoed branch
  *   deploymentDestination
  *                     where the release is deployed to, as the release train names it:
- *                     maven_central for a frozen embargoed branch, spring_enterprise for an
+ *                     maven-central for a frozen embargoed branch, spring-enterprise for an
  *                     active one (a hotfix is commercial) or a long-term support one
  *   frozenBranch      for an active embargoed branch, the frozen embargoed branch of the same
  *                     generation, which a hotfix is only built for if the active one differs
@@ -31698,7 +31699,7 @@ function plan({ refName, version }) {
       hotfix: false,
       hotfixOf: "",
       hotfixOfVersion: "",
-      deploymentDestination: "spring_enterprise",
+      deploymentDestination: "spring-enterprise",
       frozenBranch: "",
       snapshotBranch: "",
       snapshotVersion: "",
@@ -31718,7 +31719,7 @@ function plan({ refName, version }) {
       hotfix: false,
       hotfixOf: "",
       hotfixOfVersion: "",
-      deploymentDestination: "maven_central",
+      deploymentDestination: "maven-central",
       frozenBranch: "",
       snapshotBranch: `embargoed/${plain}-INTERNAL-SNAPSHOT`,
       snapshotVersion: `${plain}-INTERNAL-SNAPSHOT`,
@@ -31730,9 +31731,8 @@ function plan({ refName, version }) {
       `${refName} has the version ${version}, which is a hotfix already: an active embargoed branch has the version of the release that it fixes`,
     );
   }
-  if (plain.endsWith(".0")) {
-    return { release: false, kind };
-  }
+  // A .0 version has a hotfix too (7.2.0.1), but only once its next release is the GA and not
+  // a milestone or a release candidate. The milestones say, so the workflow decides it.
   const hotfix = `${plain}.1`;
   return {
     release: true,
@@ -31741,7 +31741,7 @@ function plan({ refName, version }) {
     hotfix: true,
     hotfixOf: `release/${plain}`,
     hotfixOfVersion: plain,
-    deploymentDestination: "spring_enterprise",
+    deploymentDestination: "spring-enterprise",
     frozenBranch: refName.replace(/^embargoed\/active\//, "embargoed/frozen/"),
     snapshotBranch: `embargoed/${hotfix}-SNAPSHOT`,
     snapshotVersion: `${hotfix}-SNAPSHOT`,
@@ -31765,11 +31765,7 @@ async function main() {
   const refName = getInput("ref-name", { required: true });
   const version = getInput("version", { required: true });
   const result = plan({ refName, version });
-  if (!result.release) {
-    info(
-      `${refName} has the version ${version}, which is not a patch release: it has no hotfix, so there is nothing to build`,
-    );
-  } else if (result.kind === "lts") {
+  if (result.kind === "lts") {
     info(
       `${refName} is a long-term support embargoed branch: the release of ${version}, with no snapshot`,
     );

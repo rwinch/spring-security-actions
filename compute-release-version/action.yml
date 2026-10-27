@@ -15,6 +15,10 @@ inputs:
     description: "Whether the milestone must have a due date. Set to false to allow it not to"
     required: false
     default: "true"
+  release-only:
+    description: "Whether a .0 version is only found if its next release is the version itself (7.2.0), and not a milestone (7.2.0-M1) or a release candidate (7.2.0-RC1): it ends as if there were no milestone, with the notice that says so. A hotfix is only made of the release itself"
+    required: false
+    default: "false"
   fail-if-missing:
     description: "Whether the action fails if the milestone does not exist. Set to false to end with a notice instead, and the output found set to false"
     required: false
