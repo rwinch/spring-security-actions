@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { execFileSync } from "node:child_process";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
-import { headOf, joinRunsUrl, run, summaryLine } from "../src/index.js";
+import { joinRunsUrl, run, summaryLine } from "../src/index.js";
 
 const base = {
   trainRepository: "spring-io/release-train",
@@ -12,7 +8,7 @@ const base = {
   version: "7.0.1",
   releaseRepository: "spring-projects/spring-security-commercial",
   releaseBranch: "release/7.0.1",
-  deploymentDestination: "maven-central",
+  deploymentDestination: "Maven Central",
 };
 const train = (hashes) => ({
   releases: { "spring-security": { "7.0.1": { "commit-hashes": hashes } } },
@@ -36,29 +32,23 @@ function fakeOctokit(failure) {
 }
 
 describe("join-train", () => {
-  it("runs Join on the branch of the train, with the release branch and the destination", async () => {
+  it("runs the workflow of the project on the release branch, with the destination and the train", async () => {
     const octokit = fakeOctokit();
     const result = await run({ ...base, train: { releases: {} } }, { octokit });
     expect(result).toEqual({ joined: true });
     expect(octokit.dispatches).toEqual([
       {
-        owner: "spring-io",
-        repo: "release-train",
-        workflow_id: "join.yml",
-        ref: "2026.11.19",
+        owner: "spring-projects",
+        repo: "spring-security-commercial",
+        workflow_id: "release-train-join.yml",
+        ref: "release/7.0.1",
         inputs: {
-          "release-repository": "spring-projects/spring-security-commercial",
-          "release-branch": "release/7.0.1",
-          "deployment-destination": "maven-central",
+          "deployment-destination": "Maven Central",
+          "release-train": "2026.11.19",
+          "release-train-repository": "spring-io/release-train",
         },
       },
     ]);
-  });
-
-  it("gives the commit hash if it has one", async () => {
-    const octokit = fakeOctokit();
-    await run({ ...base, train: {}, commitHash: "abc" }, { octokit });
-    expect(octokit.dispatches[0].inputs["commit-hash"]).toBe("abc");
   });
 
   it("does not join a release that has joined already (ready or not)", async () => {
@@ -70,35 +60,35 @@ describe("join-train", () => {
     }
   });
 
-  it("says that the token needs Actions: write if GitHub refuses the dispatch", async () => {
+  it("says what the token and the branch need if GitHub refuses the dispatch", async () => {
     const octokit = fakeOctokit(
-      Object.assign(new Error("Resource not accessible"), { status: 403 }),
+      Object.assign(new Error("Not Found"), { status: 404 }),
     );
     await expect(run({ ...base, train: {} }, { octokit })).rejects.toThrow(
-      "Could not dispatch Join in spring-io/release-train: the token needs Actions: Read and write on it (a fine-grained token) or the scope repo (a classic one) (403 Resource not accessible)",
+      "Could not run release-train-join.yml on release/7.0.1 in spring-projects/spring-security-commercial: the workflow must be on that branch, and the token needs Actions: Read and write on the repository (a fine-grained token) or the scope repo (a classic one) (404 Not Found)",
     );
   });
 
-  it("links to the runs of Join on the branch of the train, as the run is not known", () => {
+  it("links to the runs of the workflow of the project on the release branch, as the run is not known", () => {
     expect(
       joinRunsUrl({
         serverUrl: "https://github.com/",
-        trainRepository: "spring-io/release-train",
-        trainBranch: "2026.11.19",
+        repository: "spring-projects/spring-security-commercial",
+        branch: "release/7.0.1",
       }),
     ).toBe(
-      "https://github.com/spring-io/release-train/actions/workflows/join.yml?query=branch%3A2026.11.19",
+      "https://github.com/spring-projects/spring-security-commercial/actions/workflows/release-train-join.yml?query=branch%3Arelease%2F7.0.1",
     );
     expect(
       summaryLine({
         outcome: "joined",
         trainBranch: "2026.11.19",
         releaseBranch: "release/7.0.1",
-        destination: "maven-central",
+        destination: "Maven Central",
         joinUrl: "https://x/join",
       }),
     ).toBe(
-      "Joined the release train 2026.11.19: dispatched [Join](https://x/join) of release/7.0.1 (maven-central)",
+      "Joined the release train 2026.11.19: dispatched [Release Train - Join](https://x/join) of release/7.0.1 (Maven Central)",
     );
   });
 
@@ -106,12 +96,12 @@ describe("join-train", () => {
     const line = {
       trainBranch: "2026.11.19",
       releaseBranch: "release/7.0.1",
-      destination: "maven-central",
+      destination: "Maven Central",
     };
     expect(
       summaryLine({ ...line, outcome: "joined", trainUrl: "https://x/t" }),
     ).toBe(
-      "Joined the [release train 2026.11.19](https://x/t): dispatched Join of release/7.0.1 (maven-central)",
+      "Joined the [release train 2026.11.19](https://x/t): dispatched Release Train - Join of release/7.0.1 (Maven Central)",
     );
     expect(summaryLine({ ...line, outcome: "already-joined" })).toBe(
       "Already in the release train 2026.11.19: not joined again",
@@ -119,26 +109,5 @@ describe("join-train", () => {
     expect(summaryLine({ ...line, outcome: "no-train" })).toBe(
       "Not joined: the release train 2026.11.19 has not been created",
     );
-  });
-
-  it("finds the commit that the release branch is at, and none for a branch that is not there", () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "join-train-"));
-    const git = (...args) =>
-      execFileSync("git", ["-C", dir, ...args], { encoding: "utf8" }).trim();
-    git("init", "-q", "-b", "release/7.0.1");
-    git(
-      "-c",
-      "user.name=a",
-      "-c",
-      "user.email=a@b",
-      "commit",
-      "-q",
-      "--allow-empty",
-      "-m",
-      "x",
-    );
-    expect(headOf(dir, "release/7.0.1")).toBe(git("rev-parse", "HEAD"));
-    expect(headOf(dir, "release/7.0.2")).toBe("");
-    expect(headOf(path.join(dir, "nowhere"), "release/7.0.1")).toBe("");
   });
 });

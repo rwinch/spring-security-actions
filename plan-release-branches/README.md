@@ -2,7 +2,7 @@
 
 Decides what the push of an embargoed branch builds. It is the first thing that the release workflow does, and it only reads its two inputs: nothing is checked out or changed.
 
-A long-term support embargoed branch, `embargoed/lts/7.0.x` (`7.0.1-SNAPSHOT`), is commercial: it is merged into other long-term support branches only, and releases its own version, so only `release/7.0.1` is built, with no snapshot branch. Its `kind` is `lts`, `deployment-destination` is `spring-enterprise`, and `hotfix`, `hotfix-of`, `frozen-branch`, `snapshot-branch` and `snapshot-version` are empty (`hotfix` is `false`).
+A long-term support embargoed branch, `embargoed/lts/7.0.x` (`7.0.1-SNAPSHOT`), is commercial: it is merged into other long-term support branches only, and releases its own version, so only `release/7.0.1` is built, with no snapshot branch. Its `kind` is `lts`, `deployment-destination` is `Spring Enterprise`, and `hotfix`, `hotfix-of`, `frozen-branch`, `snapshot-branch` and `snapshot-version` are empty (`hotfix` is `false`).
 
 ## What it decides
 
@@ -13,7 +13,7 @@ A long-term support embargoed branch, `embargoed/lts/7.0.x` (`7.0.1-SNAPSHOT`), 
 | `hotfix` | `false` | `true` |
 | `hotfix-of`, the release that the hotfix fixes | empty | `release/7.0.1` |
 | `hotfix-of-version`, the version of that release | empty | `7.0.1` |
-| `deployment-destination`, where the release is deployed to | `maven-central` | `spring-enterprise` |
+| `deployment-destination`, where the release is deployed to | `Maven Central` | `Spring Enterprise` |
 | `frozen-branch`, the frozen embargoed branch of the same generation | empty | `embargoed/frozen/7.0.x` |
 | `snapshot-branch` | `embargoed/7.0.1-INTERNAL-SNAPSHOT` | `embargoed/7.0.1.1-SNAPSHOT` |
 | `snapshot-version` | `7.0.1-INTERNAL-SNAPSHOT` | `7.0.1.1-SNAPSHOT` |
