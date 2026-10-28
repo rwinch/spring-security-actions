@@ -31657,11 +31657,13 @@ const HOTFIX = /^\d+\.\d+\.\d+\.\d+$/;
  *                     frozen embargoed branch
  *   snapshotBranch    the branch of the snapshot that the release branch is built on (active)
  *                     or that is thrown away (frozen): embargoed/7.0.1-INTERNAL-SNAPSHOT,
- *                     embargoed/7.0.1.1-SNAPSHOT
- *   snapshotVersion   the version of that branch: 7.0.1-INTERNAL-SNAPSHOT, 7.0.1.1-SNAPSHOT.
+ *                     embargoed/7.0.1.1-SNAPSHOT. A long-term support branch has a plain
+ *                     snapshot of its own version: embargoed/5.8.30-SNAPSHOT
+ *   snapshotVersion   the version of that branch: 7.0.1-INTERNAL-SNAPSHOT, 7.0.1.1-SNAPSHOT,
+ *                     5.8.30-SNAPSHOT.
  *                     A snapshot never carries a milestone or a release candidate, so it is the
  *                     version of the branch with -SNAPSHOT replaced, and not the release.
- *                     A hotfix never has an internal snapshot
+ *                     A hotfix or a long-term support version never has an internal snapshot
  */
 function plan({ refName, version }) {
   let kind;
@@ -31690,8 +31692,9 @@ function plan({ refName, version }) {
         `${refName} has the version ${version}, a hotfix: only an active embargoed branch has one, and a long-term support branch releases its own version`,
       );
     }
-    // Only the release branch is built: a long-term support branch is commercial, and is
-    // merged into other long-term support branches only, so its release needs no snapshot
+    // The snapshot of a long-term support version is a plain -SNAPSHOT, as a hotfix has: it is
+    // commercial, and has the fixes for vulnerabilities, so the internal snapshot that OSS has (to
+    // not get the OSS snapshot, which lacks them) is not needed. The release is built from the pushed commit.
     return {
       release: true,
       kind,
@@ -31701,8 +31704,8 @@ function plan({ refName, version }) {
       hotfixOfVersion: "",
       deploymentDestination: "Spring Enterprise",
       frozenBranch: "",
-      snapshotBranch: "",
-      snapshotVersion: "",
+      snapshotBranch: `embargoed/${plain}-SNAPSHOT`,
+      snapshotVersion: `${plain}-SNAPSHOT`,
     };
   }
 
@@ -31767,7 +31770,7 @@ async function main() {
   const result = plan({ refName, version });
   if (result.kind === "lts") {
     info(
-      `${refName} is a long-term support embargoed branch: the release of ${version}, with no snapshot`,
+      `${refName} is a long-term support embargoed branch: the release of ${version}, and the snapshot of it`,
     );
   } else if (result.kind === "frozen") {
     info(

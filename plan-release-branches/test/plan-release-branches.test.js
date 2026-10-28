@@ -47,7 +47,7 @@ describe("plan", () => {
     });
   });
 
-  it("builds only the release for a long-term support embargoed branch, with no snapshot", () => {
+  it("builds the release and a plain snapshot for a long-term support embargoed branch", () => {
     expect(
       plan({ refName: "embargoed/lts/5.8.x", version: "5.8.30-SNAPSHOT" }),
     ).toEqual({
@@ -59,8 +59,8 @@ describe("plan", () => {
       hotfixOfVersion: "",
       deploymentDestination: "Spring Enterprise",
       frozenBranch: "",
-      snapshotBranch: "",
-      snapshotVersion: "",
+      snapshotBranch: "embargoed/5.8.30-SNAPSHOT",
+      snapshotVersion: "5.8.30-SNAPSHOT",
     });
   });
 

@@ -17,8 +17,10 @@ name: release-branches
 #                                             dependencies that have a hotfix
 #     release/<hotfix>                        the release of the hotfix, from that branch
 #   embargoed/lts/<generation>      a long-term support release of the version of the branch
-#     release/<release version>               the release, as for a frozen branch. No snapshot
-#                                             branch. The branch is commercial, so its milestone
+#     embargoed/<version>-SNAPSHOT            a snapshot of the version, from the pushed commit, with
+#                                             snapshots of the dependencies that have joined the train
+#     release/<release version>               the release, as for a frozen branch, from the pushed
+#                                             commit. The branch is commercial, so its milestone
 #                                             and the issues of its dependency updates are in the
 #                                             commercial repository, and it is deployed to
 #                                             Spring Enterprise. Its milestone names its release
@@ -236,12 +238,13 @@ jobs:
           train-url: ${{ format('{0}/{1}/tree/{2}', github.server_url, inputs.release-train-repository || 'spring-io/release-train', steps.train.outputs.branch) }}
           train-state-url: ${{ format('{0}/{1}/blob/{2}/train.yml#L1', github.server_url, inputs.release-train-repository || 'spring-io/release-train', steps.train.outputs.branch) }}
 
-      # The snapshot branch (none for a long-term support branch): from the pushed commit. A hotfix has the release merged in, and
-      # then the commercial license and headers. Then its version, and the dependencies that
-      # have joined the release train, as snapshots. Nothing of that has an issue: it is
-      # thrown away, or replaced.
+      # The snapshot branch: from the pushed commit. A hotfix has the release merged in, and
+      # then the commercial license and headers. Then its version (a long-term support branch has it
+      # already), and the dependencies that have joined the release train, as snapshots. Nothing of
+      # that has an issue: it is thrown away, or replaced. The snapshot of a hotfix or of a
+      # long-term support version is a plain -SNAPSHOT, and only OSS has an internal one: it
+      # publishes a regular snapshot without the fixes for vulnerabilities that the commercial one has.
       - name: Start the snapshot branch
-        if: env.KIND != 'lts'
         uses: spring-io/spring-security-actions/start-branch@70b3efe9164929a5a2af75b529be7fca48da5611 # 0.0.14
         with:
           branch: ${{ env.SNAPSHOT_BRANCH }}
@@ -268,16 +271,16 @@ jobs:
           message: Set the version to ${{ env.SNAPSHOT_VERSION }}
       - name: Work out the snapshots of the dependencies
         id: snapshot-versions
-        if: env.KIND != 'lts' && steps.train.outputs.found == 'true'
+        if: steps.train.outputs.found == 'true'
         uses: spring-io/spring-security-actions/map-train-versions@70b3efe9164929a5a2af75b529be7fca48da5611 # 0.0.14
         with:
           release-versions-file: ${{ steps.train.outputs.release-versions-file }}
           train-file: ${{ steps.train.outputs.train-file }}
           prefer-hotfix: ${{ env.HOTFIX }}
-          suffix: -INTERNAL-SNAPSHOT
+          suffix: ${{ env.KIND == 'lts' && '-SNAPSHOT' || '-INTERNAL-SNAPSHOT' }}
           hotfix-suffix: -SNAPSHOT
       - name: Update the dependencies of the snapshot
-        if: env.KIND != 'lts' && steps.train.outputs.found == 'true'
+        if: steps.train.outputs.found == 'true'
         uses: spring-io/spring-security-actions/update-versions@70b3efe9164929a5a2af75b529be7fca48da5611 # 0.0.14
         with:
           versions: ${{ steps.snapshot-versions.outputs.versions }}

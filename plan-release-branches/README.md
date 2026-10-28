@@ -2,7 +2,7 @@
 
 Decides what the push of an embargoed branch builds. It is the first thing that the release workflow does, and it only reads its two inputs: nothing is checked out or changed.
 
-A long-term support embargoed branch, `embargoed/lts/7.0.x` (`7.0.1-SNAPSHOT`), is commercial: it is merged into other long-term support branches only, and releases its own version, so only `release/7.0.1` is built, with no snapshot branch. Its `kind` is `lts`, `deployment-destination` is `Spring Enterprise`, and `hotfix`, `hotfix-of`, `frozen-branch`, `snapshot-branch` and `snapshot-version` are empty (`hotfix` is `false`).
+A long-term support embargoed branch, `embargoed/lts/7.0.x` (`7.0.1-SNAPSHOT`), is commercial: it is merged into other long-term support branches only, and releases its own version, so `release/7.0.1` is built from the pushed commit, and a snapshot branch of its own version, `embargoed/7.0.1-SNAPSHOT`, as a hotfix has (a plain `-SNAPSHOT`, and never an internal one: only OSS has that, as it publishes a regular snapshot without the fixes for vulnerabilities, and a commercial snapshot has them). Its `kind` is `lts`, `deployment-destination` is `Spring Enterprise`, `snapshot-branch` is `embargoed/7.0.1-SNAPSHOT` and `snapshot-version` is `7.0.1-SNAPSHOT`, and `hotfix`, `hotfix-of` and `frozen-branch` are empty (`hotfix` is `false`).
 
 ## What it decides
 
@@ -19,7 +19,7 @@ A long-term support embargoed branch, `embargoed/lts/7.0.x` (`7.0.1-SNAPSHOT`), 
 | `snapshot-version` | `7.0.1-INTERNAL-SNAPSHOT` | `7.0.1.1-SNAPSHOT` |
 
 - A snapshot never carries a milestone or a release candidate: the snapshot of `7.1.0-SNAPSHOT` is `7.1.0-INTERNAL-SNAPSHOT`, and not the version of the release that is built (`7.1.0-RC1`).
-- A hotfix never has an internal snapshot, and a frozen embargoed branch has no hotfix.
+- A hotfix and a long-term support version never have an internal snapshot, and a frozen embargoed branch has no hotfix.
 - A version that ends with `.0` on an active embargoed branch has a hotfix too (`7.2.0.1`), but only once its next release is the GA (`7.2.0`) and not a milestone or a release candidate (`7.2.0-RC1`), which have none. This action plans it, and the release workflow ends the run, with a notice, if the milestone is not the GA.
 
 ## Inputs
