@@ -1,5 +1,5 @@
 name: "align-milestone"
-description: "Sets the due date of the milestone of a hotfix to the commercial general availability of its release train"
+description: "Sets the due date of the milestone of a hotfix or of a long-term support version to the commercial general availability of its release train"
 
 inputs:
   train-file:
@@ -9,7 +9,7 @@ inputs:
     description: "The branch of the train, for the message."
     required: false
   milestone-repository:
-    description: "The repository (owner/repo) with the milestone of the hotfix, the commercial repository."
+    description: "The repository (owner/repo) with the milestone of the hotfix or of the long-term support version, the commercial repository."
     required: true
   milestone:
     description: "The title of the milestone, for example `7.0.1.1`."

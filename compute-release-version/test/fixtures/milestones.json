@@ -13,5 +13,10 @@
   { "number": 12, "title": "7.2.0-M1", "state": "open", "due_on": null },
   { "number": 13, "title": "7.3.0-M1", "state": "open", "due_on": "2027-03-01T12:00:00Z" },
   { "number": 14, "title": "7.3.0-RC1", "state": "open", "due_on": "2027-02-01T12:00:00Z" },
-  { "number": 15, "title": "7.5.0-M1", "state": "open", "due_on": "2027-06-01T23:30:00Z" }
+  { "number": 15, "title": "7.5.0-M1", "state": "open", "due_on": "2027-06-01T23:30:00Z" },
+  { "number": 16, "title": "5.8.30", "state": "open", "due_on": "2026-11-19T12:00:00Z", "description": "LTS.\r\nrelease train:  2026.10.22 \r\nMore text" },
+  { "number": 17, "title": "5.8.31", "state": "open", "due_on": "2026-12-24T12:00:00Z", "description": "Nothing about a train" },
+  { "number": 18, "title": "5.8.32", "state": "open", "due_on": "2026-12-24T12:00:00Z", "description": "Release Train: 2026.10.22\nRelease Train: 2026.11.19" },
+  { "number": 19, "title": "5.8.33", "state": "open", "due_on": "2026-12-24T12:00:00Z", "description": "Release Train: soon" },
+  { "number": 20, "title": "5.8.34", "state": "open", "due_on": "2026-12-24T12:00:00Z", "description": null }
 ]

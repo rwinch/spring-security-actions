@@ -2,7 +2,12 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { candidateOf, noTrainSummary, run } from "../src/index.js";
+import {
+  candidateOf,
+  noTrainSummary,
+  releaseTrainOf,
+  run,
+} from "../src/index.js";
 import { createOctokit } from "../src/octokit.js";
 import { defaultMilestones, startFakeGitHub } from "./support/fake-github.js";
 import { runAction } from "./support/run-action.js";
@@ -27,6 +32,37 @@ describe("candidateOf", () => {
     "",
   ])("rejects %j", (version) => {
     expect(() => candidateOf(version)).toThrow();
+  });
+});
+
+describe("releaseTrainOf", () => {
+  it.each([
+    [undefined, ""],
+    [null, ""],
+    ["", ""],
+    ["Nothing about a train", ""],
+    ["Release Train: 2026.10.22", "2026.10.22"],
+    ["Text\nrelease train:2026.10.22\nText", "2026.10.22"],
+    ["  RELEASE   TRAIN :   2026.10.22  \r\nMore", "2026.10.22"],
+    ["Release Train: 2026.10.22\nRelease Train: 2026.10.22", "2026.10.22"],
+    ["The Release Train: 2026.10.22 is it", ""],
+  ])("reads %j as %j", (description, expected) => {
+    expect(releaseTrainOf(description)).toBe(expected);
+  });
+
+  it.each(["soon", "2026-10-22", "2026.10", ""])(
+    "does not take the name %j",
+    (name) => {
+      expect(() => releaseTrainOf(`Release Train: ${name}`, "5.8.30")).toThrow(
+        "The description of 5.8.30 names the release train",
+      );
+    },
+  );
+
+  it("fails for two different trains", () => {
+    expect(() =>
+      releaseTrainOf("Release Train: 2026.10.22\nRelease Train: 2026.11.19"),
+    ).toThrow("names two release trains (2026.10.22, 2026.11.19)");
   });
 });
 
@@ -219,6 +255,49 @@ describe("run", () => {
     });
   });
 
+  describe("the release train", () => {
+    it("is the one that the description names, whatever the due date", async () => {
+      expect(await release("5.8.30-SNAPSHOT")).toMatchObject({
+        found: true,
+        releaseVersion: "5.8.30",
+        dueDate: "2026-11-19",
+        releaseTrain: "2026.10.22",
+      });
+    });
+
+    it("is empty if the description names none", async () => {
+      for (const version of ["5.8.31", "5.8.34", "7.0.1.1"]) {
+        expect(await release(`${version}-SNAPSHOT`)).toMatchObject({
+          found: true,
+          releaseTrain: "",
+        });
+      }
+    });
+
+    it("fails if it is required and the description names none", async () => {
+      await expect(
+        release("5.8.31-SNAPSHOT", { requireReleaseTrain: true }),
+      ).rejects.toThrow(
+        'The description of the milestone 5.8.31 of tutorial/spring-merge does not name its release train: add a line "Release Train: <name>"',
+      );
+    });
+
+    it("is not asked for if it is required and the description names it", async () => {
+      expect(
+        await release("5.8.30-SNAPSHOT", { requireReleaseTrain: true }),
+      ).toMatchObject({ releaseTrain: "2026.10.22" });
+    });
+
+    it("fails for a name that is not a train, and for two trains", async () => {
+      await expect(release("5.8.33-SNAPSHOT")).rejects.toThrow(
+        'names the release train "soon"',
+      );
+      await expect(release("5.8.32-SNAPSHOT")).rejects.toThrow(
+        "names two release trains",
+      );
+    });
+  });
+
   describe("the due date", () => {
     it("fails if the milestone has none", async () => {
       await expect(release("7.2.0-SNAPSHOT")).rejects.toThrow(
@@ -383,8 +462,24 @@ describe.each([["src/index.js"], ["dist/index.js"]])(
         found: "true",
         "release-version": "7.1.0-RC1",
         "due-date": "2026-11-19",
+        "release-train": "",
         "milestone-url": `https://github.com/${REPO}/milestone/8`,
       });
+    });
+
+    it("writes the release train that the description names, and requires it when told to", async () => {
+      const named = await runAction(entry, inputs("5.8.30-SNAPSHOT"), {
+        GITHUB_API_URL: fake.url,
+      });
+      expect(named.code).toBe(0);
+      expect(named.outputs["release-train"]).toBe("2026.10.22");
+      const missing = await runAction(
+        entry,
+        inputs("5.8.31-SNAPSHOT", { "require-release-train": "true" }),
+        { GITHUB_API_URL: fake.url },
+      );
+      expect(missing.code).toBe(1);
+      expect(missing.stdout).toContain("does not name its release train");
     });
 
     it("allows a missing due date when told to", async () => {
@@ -400,6 +495,7 @@ describe.each([["src/index.js"], ["dist/index.js"]])(
         found: "true",
         "release-version": "7.2.0-M1",
         "due-date": "",
+        "release-train": "",
         "milestone-url": `https://github.com/${REPO}/milestone/12`,
       });
     });
@@ -475,6 +571,7 @@ describe.each([["src/index.js"], ["dist/index.js"]])(
         expect(result.outputs).toEqual({
           found: "false",
           "release-version": "",
+          "release-train": "",
           "due-date": "",
           "milestone-url": "",
         });

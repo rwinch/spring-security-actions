@@ -28627,6 +28627,7 @@ __nccwpck_require__.d(__webpack_exports__, {
   RH: () => (/* binding */ candidateOf),
   iW: () => (/* binding */ main),
   WO: () => (/* binding */ noTrainSummary),
+  p4: () => (/* binding */ releaseTrainOf),
   eF: () => (/* binding */ run)
 });
 
@@ -36657,6 +36658,14 @@ class NoDueDateError extends Error {
   }
 }
 
+/** The milestone exists, but its description does not name a release train. */
+class NoReleaseTrainError extends Error {
+  constructor(message, milestone) {
+    super(message);
+    this.milestone = milestone;
+  }
+}
+
 const SERVER = () =>
   (process.env.GITHUB_SERVER_URL || "https://github.com").replace(/\/+$/, "");
 
@@ -36732,6 +36741,34 @@ function candidateOf(snapshotVersion) {
   return candidate;
 }
 
+// A line of the description of a milestone that names its release train: "Release Train: 2026.10.22".
+const TRAIN_LINE = /^[ \t]*release[ \t]+train[ \t]*:[ \t]*(.*?)[ \t]*$/gim;
+const TRAIN_NAME = /^\d{4}\.\d{2}\.\d{2}$/;
+
+/**
+ * The release train that the description of a milestone names, with a line
+ * `Release Train: 2026.10.22` (the key is not case sensitive): the name of its branch in the
+ * release train repository. Empty if the description has no such line. A name that is not the
+ * name of a branch of a train (YYYY.MM.DD), or two lines that name different trains, are errors.
+ */
+function releaseTrainOf(description, title = "the milestone") {
+  const names = [...(description ?? "").matchAll(TRAIN_LINE)].map((m) => m[1]);
+  for (const name of names) {
+    if (!TRAIN_NAME.test(name)) {
+      throw new Error(
+        `The description of ${title} names the release train "${name}", which is not the name of a train: expected YYYY.MM.DD, for example "Release Train: 2026.11.19"`,
+      );
+    }
+  }
+  const distinct = [...new Set(names)];
+  if (distinct.length > 1) {
+    throw new Error(
+      `The description of ${title} names two release trains (${distinct.join(", ")}): it must name one`,
+    );
+  }
+  return distinct[0] ?? "";
+}
+
 const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 // The order of the releases of a version: its milestones, then its release candidates,
@@ -36780,6 +36817,7 @@ async function run(
     milestoneRepository,
     requireDueDate = true,
     releaseOnly = false,
+    requireReleaseTrain = false,
   },
   { octokit },
 ) {
@@ -36828,10 +36866,21 @@ async function run(
       milestone,
     );
   }
+  const releaseTrain = releaseTrainOf(
+    milestone.description,
+    `the milestone ${milestone.title} of ${milestoneRepository}`,
+  );
+  if (!releaseTrain && requireReleaseTrain) {
+    throw new NoReleaseTrainError(
+      `The description of the milestone ${milestone.title} of ${milestoneRepository} does not name its release train: add a line "Release Train: <name>", for example "Release Train: 2026.11.19" (set require-release-train to false to allow that)`,
+      milestone,
+    );
+  }
   return {
     found: true,
     releaseVersion: milestone.title,
     dueDate,
+    releaseTrain,
     milestoneUrl: milestone.html_url ?? "",
   };
 }
@@ -36852,6 +36901,11 @@ async function main() {
       getInput("release-only"),
       false,
     ),
+    requireReleaseTrain: parseBoolean(
+      "require-release-train",
+      getInput("require-release-train"),
+      false,
+    ),
     failIfMissing: parseBoolean(
       "fail-if-missing",
       getInput("fail-if-missing"),
@@ -36863,6 +36917,11 @@ async function main() {
   try {
     result = await run(inputs, { octokit });
   } catch (error) {
+    if (error instanceof NoReleaseTrainError) {
+      addSummary(
+        `### ${error.milestone.title} does not name its release train\n\nTo build it, [add a line to the description of the milestone](${error.milestone.html_url}/edit) that names the release train that it is in, for example \`Release Train: 2026.11.19\`, and run the workflow again. The due date of the milestone is set to the commercial general availability of that train.\n`,
+      );
+    }
     if (error instanceof NoDueDateError) {
       addSummary(
         noTrainSummary({
@@ -36891,16 +36950,18 @@ async function main() {
     setOutput("found", "false");
     setOutput("release-version", "");
     setOutput("due-date", "");
+    setOutput("release-train", "");
     setOutput("milestone-url", "");
     return;
   }
-  const { releaseVersion, dueDate, milestoneUrl } = result;
+  const { releaseVersion, dueDate, releaseTrain, milestoneUrl } = result;
   info(
     `${inputs.snapshotVersion} is released as ${releaseVersion}, due ${dueDate || "on no date"}`,
   );
   setOutput("found", "true");
   setOutput("release-version", releaseVersion);
   setOutput("due-date", dueDate);
+  setOutput("release-train", releaseTrain);
   setOutput("milestone-url", milestoneUrl);
 }
 
@@ -36911,5 +36972,6 @@ if (isMain(import.meta.url)) {
 var __webpack_exports__candidateOf = __webpack_exports__.RH;
 var __webpack_exports__main = __webpack_exports__.iW;
 var __webpack_exports__noTrainSummary = __webpack_exports__.WO;
+var __webpack_exports__releaseTrainOf = __webpack_exports__.p4;
 var __webpack_exports__run = __webpack_exports__.eF;
-export { __webpack_exports__candidateOf as candidateOf, __webpack_exports__main as main, __webpack_exports__noTrainSummary as noTrainSummary, __webpack_exports__run as run };
+export { __webpack_exports__candidateOf as candidateOf, __webpack_exports__main as main, __webpack_exports__noTrainSummary as noTrainSummary, __webpack_exports__releaseTrainOf as releaseTrainOf, __webpack_exports__run as run };

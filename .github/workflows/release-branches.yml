@@ -21,7 +21,10 @@ name: release-branches
 #                                             branch. The branch is commercial, so its milestone
 #                                             and the issues of its dependency updates are in the
 #                                             commercial repository, and it is deployed to
-#                                             Spring Enterprise
+#                                             Spring Enterprise. Its milestone names its release
+#                                             train in its description (Release Train: 2026.10.22),
+#                                             and its due date is set to the commercial general
+#                                             availability of that train
 #   A hotfix is only built if the active embargoed branch has changes that the frozen one of
 #   its generation lacks. If it has none (right after the frozen one was merged into it),
 #   nothing is built, and the milestone of the hotfix is not looked for.
@@ -33,14 +36,18 @@ name: release-branches
 # What the release train asks for is read from the release train repository, from the
 # branch of the date that the milestone of the release is due (for a hotfix, the milestone of the
 # release it fixes in the OSS repository: its own due date is its commercial availability, after
-# the train that builds it). If there is none, the
+# the train that builds it). The milestone of a hotfix or of a long-term support version in the
+# commercial repository may name its train instead, with a line of its description (Release
+# Train: 2026.10.22): a long-term support version has no other way, as it is due on the
+# commercial availability of the train, which is not the date of the train. If there is none, the
 # branches are built without the dependency updates. A release that is ready in the
 # train is not changed: the run fails, and says what to do.
 #
 # Once the branches are pushed, the release joins the train, if the train exists and has not
 # got the release yet: the workflow Release Train - Join of the project runs on the release
 # branch (it runs Join in the release train repository). The due date of the milestone of a
-# hotfix is set to the commercial-general-availability of the train first.
+# hotfix or a long-term support version is set to the commercial-general-availability of the
+# train first.
 # The workflow can be run by hand (workflow_dispatch of the caller) on an embargoed branch, for
 # example after the due date of a milestone was set: what has joined is not joined again.
 #
@@ -88,6 +95,7 @@ jobs:
       due-date: ${{ steps.release.outputs.due-date }}
       deployment-destination: ${{ steps.plan.outputs.deployment-destination }}
       train-date: ${{ steps.train-milestone.outputs.due-date || steps.release.outputs.due-date }}
+      train-branch: ${{ steps.plan.outputs.kind != 'frozen' && steps.release.outputs.release-train || '' }}
       milestone-url: ${{ steps.release.outputs.milestone-url }}
       project: ${{ steps.repositories.outputs.project }}
       oss-repository: ${{ steps.repositories.outputs.oss-repository }}
@@ -155,6 +163,9 @@ jobs:
           fail-if-missing: "false"
           # The due date of a hotfix is corrected to the commercial availability of its train
           require-due-date: ${{ steps.plan.outputs.kind != 'active' }}
+          # The milestone of a long-term support version has no train that its due date can name:
+          # its description does (Release Train: 2026.10.22), and its due date is set from that train
+          require-release-train: ${{ steps.plan.outputs.kind == 'lts' }}
       # A frozen or active embargoed branch is for a generation that is still OSS when the release
       # is made public (the date of its train). Once it is commercial, it has one embargoed/lts branch.
       - name: Check that the generation is still supported as OSS
@@ -190,19 +201,22 @@ jobs:
           fetch-depth: 0
       - name: Set the git identity
         uses: spring-io/spring-security-actions/git-identity@19e42f3bc64b6c7e0ca7f63ef7f1eb17445b7a6b # 0.0.13
-      # The train is the one that the milestone of the release is due (for a hotfix, the milestone of the release it fixes). If it has not been
+      # The train is the one that the description of the milestone names (Release Train: 2026.10.22),
+      # which a long-term support version needs. Without one, it is the one that the milestone of the
+      # release is due (for a hotfix, the milestone of the release it fixes). If it has not been
       # created, that is said in a notice, and the branches are built without the dependencies.
       - name: Read the release train
         id: train
         uses: spring-io/spring-security-actions/load-train@19e42f3bc64b6c7e0ca7f63ef7f1eb17445b7a6b # 0.0.13
         with:
           release-train-repository: ${{ inputs.release-train-repository || 'spring-io/release-train' }}
-          date: ${{ needs.plan.outputs.train-date }}
+          branch: ${{ needs.plan.outputs.train-branch }}
+          date: ${{ needs.plan.outputs.train-branch == '' && needs.plan.outputs.train-date || '' }}
           token: ${{ secrets.RELEASE_AUTOMATION_TOKEN }}
-      # The due date of the milestone of a hotfix is the commercial availability of the train: it is
-      # corrected here if it is not, or if it has none.
-      - name: Set the due date of the milestone of the hotfix
-        if: env.KIND == 'active' && steps.train.outputs.found == 'true'
+      # The due date of the milestone of a hotfix or of a long-term support version is the commercial
+      # availability of the train: it is corrected here if it is not, or if it has none.
+      - name: Set the due date of the milestone
+        if: env.KIND != 'frozen' && steps.train.outputs.found == 'true'
         uses: spring-io/spring-security-actions/align-milestone@19e42f3bc64b6c7e0ca7f63ef7f1eb17445b7a6b # 0.0.13
         with:
           train-file: ${{ steps.train.outputs.train-file }}

@@ -1,6 +1,6 @@
 # align-milestone
 
-Sets the due date of the milestone of a hotfix to the commercial general availability of its release train (`schedule.publication.commercial-general-availability` of `train.yml`), at noon UTC. A hotfix is built in the train of its OSS equivalent and is available to customers on that date, so the due date of its milestone follows the train.
+Sets the due date of the milestone of a hotfix or of a long-term support version to the commercial general availability of its release train (`schedule.publication.commercial-general-availability` of `train.yml`), at noon UTC. A hotfix is built in the train of its OSS equivalent, and a long-term support version joins the train that its milestone names, and both are available to customers on that date, so the due date of the milestone follows the train.
 
 It changes nothing if the due date is right. It fails if the milestone does not exist, or if the train has no commercial general availability.
 
